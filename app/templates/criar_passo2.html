@@ -95,11 +95,14 @@
       <div class="form-group">
         <label class="form-label">Treinamentos do Clã (escolha 2 perícias)</label>
         <div class="pericias-check-grid" id="clan-pericias-grid">
-          {% set all_pericias = ['Acrobacia','Atletismo','Atuação','Condução','Diplomacia','Enganação','Feitiçaria','Furtividade','História','Intuição','Intimidação','Investigação','Medicina','Natureza','Ocultismo','Percepção','Persuasão','Prestidigitação','Religião','Sobrevivência','Tecnologia'] %}
-          {% for p in all_pericias %}
+          {% for p, attr in pericias.items() %}
+          {% set mod_base = ((dados.atributos.get(attr, 10) - 10) // 2) %}
           <label class="check-item">
-            <input type="checkbox" name="clan_pericias" value="{{ p }}" class="clan-pericia-check">
-            <span>{{ p }}</span>
+            <input type="checkbox" name="clan_pericias" value="{{ p }}" class="clan-pericia-check"
+                   data-attr="{{ attr }}">
+            <span>{{ p }}{% if p in pericias_treino %} <span class="badge-treino">*T</span>{% endif %} <span class="pericia-attr">({{ attr_abrev[attr] }})</span>
+              <span class="pericia-mod-live {% if mod_base >= 0 %}mod-pos{% else %}mod-neg{% endif %} pmod-clan" data-attr="{{ attr }}">{{ '+' if mod_base >= 0 else '' }}{{ mod_base }}</span>
+            </span>
           </label>
           {% endfor %}
         </div>
@@ -294,6 +297,18 @@ function atualizarTotais() {
     const total = base + bonus;
     document.getElementById(`bonus-${attr}`).textContent = bonus > 0 ? `+${bonus}` : (bonus < 0 ? bonus : '+0');
     document.getElementById(`total-${attr}`).textContent = total;
+  });
+  atualizarModsPericias();
+}
+
+function atualizarModsPericias() {
+  document.querySelectorAll('.pmod-clan').forEach(el => {
+    const attr = el.dataset.attr;
+    const base = BASE_ATTRS[attr] || 10;
+    const bonus = bonusDistrib[attr] || 0;
+    const mod = Math.floor((base + bonus - 10) / 2);
+    el.textContent = (mod >= 0 ? '+' : '') + mod;
+    el.className = 'pericia-mod-live pmod-clan ' + (mod >= 0 ? 'mod-pos' : 'mod-neg');
   });
 }
 

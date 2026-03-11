@@ -157,11 +157,15 @@
           </span>
         </label>
         <div class="pericias-check-grid">
-          {% for p in pericias %}
+          {% set abbrev = {'forca':'FOR','destreza':'DES','constituicao':'CON','inteligencia':'INT','sabedoria':'SAB','presenca':'PRE'} %}
+          {% for p, attr in pericias.items() %}
           <label class="check-item">
             <input type="checkbox" name="pericias_treinadas" value="{{ p }}" class="inv-pericia-check"
+                   data-attr="{{ attr }}"
                    {{ 'checked' if inv and p in inv.pericias_treinadas else '' }}>
-            <span>{{ p }}</span>
+            <span>{{ p }}{% if p in pericias_treino %} <span class="badge-treino">*T</span>{% endif %} <span class="pericia-attr">({{ abbrev[attr] }})</span>
+              <span class="pericia-mod-live mod-pos inv-pmod" id="invpmod-{{ loop.index }}" data-attr="{{ attr }}">+0</span>
+            </span>
           </label>
           {% endfor %}
         </div>
@@ -341,6 +345,14 @@ function recalcular() {
     const el = document.getElementById(`mod-${a}`);
     el.textContent = (m >= 0 ? '+' : '') + m;
     el.className = 'atrib-inv-mod ' + (m >= 0 ? 'pos' : 'neg');
+  });
+
+  // Update pericia modifier displays
+  document.querySelectorAll('.inv-pmod').forEach(el => {
+    const a = el.dataset.attr;
+    const m = getMod(attrs[a] || 8);
+    el.textContent = (m >= 0 ? '+' : '') + m;
+    el.className = 'pericia-mod-live inv-pmod ' + (m >= 0 ? 'mod-pos' : 'mod-neg');
   });
 
   // PV

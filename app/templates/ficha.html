@@ -158,16 +158,52 @@
       </div>
 
       <!-- Perícias -->
-      {% if dados.pericias_treinadas %}
       <div class="ficha-card">
-        <div class="ficha-card-title">📚 Perícias Treinadas</div>
-        <div class="pericias-display">
-          {% for p in dados.pericias_treinadas %}
-          <span class="pericia-tag">{{ p }}</span>
+        <div class="ficha-card-title">📚 Perícias</div>
+        <div class="pericias-full-grid">
+          {% for nome, pc in pericias_calc.items() %}
+          {% set sinal = '+' if pc.total >= 0 else '' %}
+          <div class="pf-row {% if pc.treinamento %}pf-row--treinada{% endif %}">
+            <span class="pf-attr">{{ attr_abrev[pc.attr] }}</span>
+            <span class="pf-nome">{{ nome }}{% if pc.requer_treino %} <span class="badge-treino">*T</span>{% endif %}</span>
+            <span class="pf-nivel">
+              {% if pc.treinamento == 'mestre' %}<span class="pf-badge pf-mestre">Mestre</span>
+              {% elif pc.treinamento == 'treinado' %}<span class="pf-badge pf-treinado">Trei.</span>
+              {% else %}<span class="pf-badge pf-sem">—</span>{% endif %}
+            </span>
+            <span class="pf-mod">{{ sinal }}{{ pc.total }}</span>
+            <!-- Tooltip de breakdown -->
+            <div class="pf-tooltip">
+              <div class="pf-tt-titulo">{{ nome }}</div>
+              <div class="pf-tt-linha">
+                <span>Mod. {{ attr_abrev[pc.attr] }}</span>
+                <span>{{ '+' if pc.base_mod >= 0 else '' }}{{ pc.base_mod }}</span>
+              </div>
+              {% if pc.treinamento %}
+              <div class="pf-tt-linha">
+                {% if pc.treinamento == 'mestre' %}
+                <span>Mestre (BT + BT/2)</span>
+                {% else %}
+                <span>Treinado (BT)</span>
+                {% endif %}
+                <span>+{{ pc.train_bonus }}</span>
+              </div>
+              {% endif %}
+              {% for e in pc.especiais %}
+              <div class="pf-tt-linha {% if e.valor < 0 %}pf-tt-neg{% else %}pf-tt-pos{% endif %}">
+                <span>{{ e.fonte }}</span>
+                <span>{{ '+' if e.valor >= 0 else '' }}{{ e.valor }}</span>
+              </div>
+              {% endfor %}
+              <div class="pf-tt-total">
+                <span>Total</span>
+                <span>{{ '+' if pc.total >= 0 else '' }}{{ pc.total }}</span>
+              </div>
+            </div>
+          </div>
           {% endfor %}
         </div>
       </div>
-      {% endif %}
     </div>
 
     <!-- Coluna direita -->
@@ -255,20 +291,46 @@
         {% endif %}
       </div>
 
-      <!-- Feitiços -->
+      <!-- Talentos/Habilidades -->
       <div class="ficha-card">
-        <div class="ficha-card-title">🔮 Feitiços e Técnicas</div>
-        {% if dados.feiticos %}
-        <div class="feiticos-lista">
-          {% for f in dados.feiticos %}
-          {% if f.strip() %}
-          <div class="feitico-item">{{ f }}</div>
+        <div class="ficha-card-title">🌟 Talentos/Habilidades</div>
+        <div id="feiticos-lista">
+          {% if dados.feiticos %}
+            {% for f in dados.feiticos %}
+            {% if f is mapping %}
+            {% set fname = f.nome %}{% set fdesc = f.desc %}
+            {% else %}
+            {% set fname = f %}{% set fdesc = '' %}
+            {% endif %}
+            {% if fname.strip() %}
+            <div class="feitico-card" data-idx="{{ loop.index0 }}">
+              <div class="feitico-header">
+                <span class="feitico-nome">{{ fname }}</span>
+                <div class="feitico-btns">
+                  <button type="button" class="btn-icon" onclick="editarFeitico({{ loop.index0 }})">✏️</button>
+                  <button type="button" class="btn-icon btn-danger-icon" onclick="deletarFeitico({{ loop.index0 }})">🗑</button>
+                </div>
+              </div>
+              {% if fdesc %}<div class="feitico-desc">{{ fdesc }}</div>{% endif %}
+            </div>
+            {% endif %}
+            {% endfor %}
+          {% else %}
+          <p class="text-muted" id="feiticos-empty">Nenhum talento registrado.</p>
           {% endif %}
-          {% endfor %}
         </div>
-        {% else %}
-        <p class="text-muted">Nenhum feitiço registrado.</p>
-        {% endif %}
+        <div class="feitico-add-form" id="feitico-add-row" style="display:none">
+          <div class="feitico-add-fields">
+            <input type="text" id="feitico-nome-input" class="form-input feitico-add-input"
+                   placeholder="Nome da habilidade..."
+                   onkeydown="if(event.key==='Escape'){fecharFeiticoForm();}">
+            <input type="text" id="feitico-desc-input" class="form-input feitico-add-input"
+                   placeholder="Efeito..."
+                   onkeydown="if(event.key==='Enter'){event.preventDefault();salvarFeitico();}else if(event.key==='Escape'){fecharFeiticoForm();}">
+          </div>
+          <button type="button" class="btn-feitico-check" onclick="salvarFeitico()" title="Confirmar">✓</button>
+        </div>
+        <button type="button" class="btn-feitico-novo" id="btn-add-feitico" onclick="toggleFeiticoRow()">＋</button>
       </div>
 
       <!-- Equipamento -->
@@ -305,8 +367,63 @@
         <div class="equip-ficha-lista">
           {% if dados.arma1 %}{{ arma_card(dados.arma1) }}{% endif %}
           {% if dados.arma2 %}{{ arma_card(dados.arma2) }}{% endif %}
-          {% if dados.uniforme %}<div class="equip-ficha-item">🥋 {{ dados.uniforme }}</div>{% endif %}
-          {% if dados.kit %}<div class="equip-ficha-item">🎒 {{ dados.kit }}</div>{% endif %}
+          {% if dados.uniforme %}
+          {% set uni = uniformes | selectattr('nome', 'equalto', dados.uniforme) | first | default({}) %}
+          <div class="equip-arma-card">
+            <div class="equip-arma-nome">🥋 {{ dados.uniforme }}</div>
+            <div class="equip-arma-row">
+              <div class="equip-arma-stat">
+                <span class="equip-stat-lbl">DEF Total</span>
+                <span class="equip-stat-val text-glow">{{ dados.calculado.defesa }}</span>
+              </div>
+              {% if uni.bonus_defesa is defined and uni.bonus_defesa > 0 %}
+              <div class="equip-arma-stat">
+                <span class="equip-stat-lbl">Bônus DEF</span>
+                <span class="equip-stat-val">+{{ uni.bonus_defesa }}</span>
+              </div>
+              {% endif %}
+              {% if dados.calculado.penalidade_uniforme and dados.calculado.penalidade_uniforme != 0 %}
+              <div class="equip-arma-stat">
+                <span class="equip-stat-lbl">Pen. DES</span>
+                <span class="equip-stat-val equip-uni-neg">{{ dados.calculado.penalidade_uniforme }}</span>
+              </div>
+              {% endif %}
+            </div>
+            {% if dados.calculado.bonus_sob_medida %}
+            <div class="equip-arma-obs">✨ +2 em Acrobacia e Furtividade</div>
+            {% endif %}
+          </div>
+          {% endif %}
+          {% if dados.kit %}
+          {% set kit_info = kits.get(dados.kit, {}) %}
+          <div class="equip-arma-card" id="kit-accordion">
+            <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="toggleKitAccordion()">
+              <div class="equip-arma-nome" style="margin-bottom:0">{{ kit_info.icone if kit_info.icone else '🎒' }} {{ dados.kit }}</div>
+              <div style="display:flex; align-items:center; gap:.4rem;">
+                <span style="font-size:.7rem; background:#1e1b4b; color:#a5b4fc; border-radius:99px; padding:.1rem .4rem;">{{ kit_info.tipo_item }}</span>
+                <span id="kit-acc-arrow" style="font-size:.8rem; color:var(--text-muted)">▸</span>
+              </div>
+            </div>
+            <div id="kit-accordion-body" style="display:none; margin-top:.6rem;">
+              <div class="equip-arma-obs" style="margin-bottom:.5rem;">Ofício: <strong>{{ kit_info.oficio }}</strong></div>
+              <p style="font-size:.8rem; color:var(--text-dim); line-height:1.5; margin-bottom:.5rem;">{{ kit_info.desc_longa }}</p>
+              {% if kit_info.capacidades %}
+              <div class="kit-acc-label">⚙️ O que você pode fazer</div>
+              <ul class="kit-acc-lista">
+                {% for cap in kit_info.capacidades %}<li>{{ cap }}</li>{% endfor %}
+              </ul>
+              {% endif %}
+              {% if kit_info.itens_criados %}
+              <div class="kit-acc-label" style="margin-top:.6rem">📦 Itens que pode criar</div>
+              <div class="kit-acc-itens">
+                {% for item in kit_info.itens_criados %}
+                <span class="kit-modal-item-tag">{{ item }}</span>
+                {% endfor %}
+              </div>
+              {% endif %}
+            </div>
+          </div>
+          {% endif %}
         </div>
       </div>
 
@@ -380,12 +497,12 @@
   </div>
   {% endif %}
 
-  <!-- Habilidades de Técnica (Expansão) -->
+  <!-- Feitiços (Expansão) -->
   {% if dados.get('especializacao') != 'restringido' %}
   {% set tecnicas_list = dados.get('tecnicas', []) %}
   <div class="ficha-card" style="margin-top:1.5rem">
     <div class="ficha-card-title" style="display:flex;align-items:center;justify-content:space-between">
-      <span>⚡ Habilidades de Técnica
+      <span>⚡ Feitiços
         {% if tecnicas_list %}<span class="badge" style="background:var(--accent);margin-left:0.5rem">{{ tecnicas_list|length }}</span>{% endif %}
       </span>
       <a href="{{ url_for('listar_tecnicas', pid=pid) }}" class="btn btn-sm btn-secondary">Gerenciar</a>
@@ -412,8 +529,8 @@
     </div>
     {% else %}
     <p class="text-muted" style="font-size:0.9rem">
-      Nenhuma habilidade de técnica.
-      <a href="{{ url_for('criar_tecnica', pid=pid) }}" style="color:var(--accent-light)">Criar primeira</a>
+      Nenhum feitiço cadastrado.
+      <a href="{{ url_for('criar_tecnica', pid=pid) }}" style="color:var(--accent-light)">Criar primeiro</a>
     </p>
     {% endif %}
   </div>
@@ -636,7 +753,8 @@ async function confirmarLevelUp() {
     </div>`;
 
   showToast(data.mensagem);
-  setTimeout(() => { fecharModal(); location.reload(); }, 2500);
+  // Não fecha automaticamente — jogador lê o resultado e fecha manualmente
+  document.getElementById('btn-levelup').disabled = false;
 }
 
 async function distribuirAtributo(attr) {
@@ -660,5 +778,102 @@ document.getElementById('modal-levelup').addEventListener('click', function(e) {
 });
 
 atualizarBarras();
+
+// ── Talentos/Habilidades ──
+let feiticosData = {{ (dados.feiticos or []) | tojson }};
+feiticosData = feiticosData.map(f => typeof f === 'string' ? {nome: f, desc: ''} : f);
+
+let editandoIdx = null;
+
+function renderFeiticos() {
+  const lista = document.getElementById('feiticos-lista');
+  if (!lista) return;
+  if (feiticosData.length === 0) {
+    lista.innerHTML = '<p class="text-muted" id="feiticos-empty">Nenhum talento registrado.</p>';
+    return;
+  }
+  lista.innerHTML = feiticosData.map((f, i) => `
+    <div class="feitico-card" data-idx="${i}">
+      <div class="feitico-header">
+        <span class="feitico-nome">${f.nome}</span>
+        <div class="feitico-btns">
+          <button type="button" class="btn-icon" onclick="editarFeitico(${i})">✏️</button>
+          <button type="button" class="btn-icon btn-danger-icon" onclick="deletarFeitico(${i})">🗑</button>
+        </div>
+      </div>
+      ${f.desc ? `<div class="feitico-desc">${f.desc.replace(/\n/g,'<br>')}</div>` : ''}
+    </div>`).join('');
+}
+
+function toggleFeiticoRow() {
+  const row = document.getElementById('feitico-add-row');
+  const btn = document.getElementById('btn-add-feitico');
+  const aberto = row.style.display !== 'none';
+  if (aberto) {
+    fecharFeiticoForm();
+  } else {
+    editandoIdx = null;
+    document.getElementById('feitico-nome-input').value = '';
+    document.getElementById('feitico-desc-input').value = '';
+    row.style.display = 'flex';
+    btn.textContent = '✕';
+    document.getElementById('feitico-nome-input').focus();
+  }
+}
+
+function editarFeitico(idx) {
+  editandoIdx = idx;
+  document.getElementById('feitico-nome-input').value = feiticosData[idx].nome;
+  document.getElementById('feitico-desc-input').value = feiticosData[idx].desc || '';
+  document.getElementById('feitico-add-row').style.display = 'flex';
+  document.getElementById('btn-add-feitico').textContent = '✕';
+  document.getElementById('feitico-nome-input').focus();
+}
+
+function fecharFeiticoForm() {
+  document.getElementById('feitico-add-row').style.display = 'none';
+  document.getElementById('btn-add-feitico').textContent = '＋';
+  editandoIdx = null;
+}
+
+async function salvarFeitico() {
+  const nome = document.getElementById('feitico-nome-input').value.trim();
+  if (!nome) return;
+  const desc = document.getElementById('feitico-desc-input').value.trim();
+  if (editandoIdx === null) {
+    feiticosData.push({nome, desc});
+  } else {
+    feiticosData[editandoIdx] = {nome, desc};
+  }
+  fecharFeiticoForm();
+  renderFeiticos();
+  await persistirFeiticos();
+}
+
+async function deletarFeitico(idx) {
+  feiticosData.splice(idx, 1);
+  renderFeiticos();
+  await persistirFeiticos();
+}
+
+async function persistirFeiticos() {
+  await fetch(`/personagem/${PID}/salvar_feiticos`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({feiticos_json: JSON.stringify(feiticosData)})
+  });
+}
+
+</script>
+
+<script>
+function toggleKitAccordion() {
+  const body = document.getElementById('kit-accordion-body');
+  const arrow = document.getElementById('kit-acc-arrow');
+  if (!body) return;
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : 'block';
+  if (arrow) arrow.textContent = open ? '▸' : '▾';
+}
 </script>
 {% endblock %}

@@ -360,31 +360,33 @@ ESPECIALIZACOES = {
     },
 }
 
-# Perícias: nome → atributo base
+# Perícias: nome → atributo base  (lista oficial — p.284)
 # Graus: nenhum (só atributo) | treinado (+BT) | mestre (+2×BT)
 PERICIAS = {
     "Acrobacia":       "destreza",
     "Atletismo":       "forca",
-    "Atuação":         "presenca",
-    "Condução":        "destreza",
-    "Diplomacia":      "presenca",
+    "Direção":         "sabedoria",
     "Enganação":       "presenca",
-    "Feitiçaria":      "inteligencia",
+    "Feitiçaria":      "inteligencia",   # *T — requer treinamento
     "Furtividade":     "destreza",
     "História":        "inteligencia",
-    "Intuição":        "sabedoria",
     "Intimidação":     "presenca",
+    "Intuição":        "sabedoria",
     "Investigação":    "inteligencia",
-    "Medicina":        "sabedoria",
-    "Natureza":        "inteligencia",
-    "Ocultismo":       "inteligencia",
+    "Medicina":        "sabedoria",      # *T — requer treinamento
+    "Ocultismo":       "sabedoria",
+    "Ofício":          "inteligencia",   # *T — requer treinamento
     "Percepção":       "sabedoria",
+    "Performance":     "presenca",
     "Persuasão":       "presenca",
-    "Prestidigitação": "destreza",
-    "Religião":        "inteligencia",
+    "Prestidigitação": "destreza",       # *T — requer treinamento
     "Sobrevivência":   "sabedoria",
     "Tecnologia":      "inteligencia",
+    "Teologia":        "inteligencia",
 }
+
+# Perícias que só funcionam se o personagem for Treinado nelas
+PERICIAS_TREINO = {"Feitiçaria", "Medicina", "Ofício", "Prestidigitação"}
 
 ATTR_ABREV = {
     "forca": "FOR", "destreza": "DES", "constituicao": "CON",
@@ -610,21 +612,161 @@ ARMAS_ESPECIAIS_GRAU = {
 }
 
 UNIFORMES = [
-    {"nome": "Uniforme Comum", "desc": "DEF = 10 + Destreza + Nível/2"},
-    {"nome": "Uniforme Reforçado", "desc": "DEF = 12 + Destreza + Nível/2"},
-    {"nome": "Armadura Leve", "desc": "DEF = 11 + Destreza + Nível/2"},
+    {
+        "key": "comum",
+        "nome": "Uniforme Comum",
+        "desc": "O uniforme padrão de feiticeiro, sem modificações adicionais.",
+        "bonus_defesa": 0,
+        "penalidade": 0,
+        "custo": 0,
+        "bonus_especial": None,
+    },
+    {
+        "key": "leve",
+        "nome": "Revestimento Leve",
+        "desc": "Um revestimento leve é colocado no uniforme, concedendo um leve reforço defensivo.",
+        "bonus_defesa": 2,
+        "penalidade": 0,
+        "custo": 1,
+        "bonus_especial": None,
+    },
+    {
+        "key": "medio",
+        "nome": "Revestimento Médio",
+        "desc": "Placas e camadas adicionais dão uma proteção maior, mas com peso considerável.",
+        "bonus_defesa": 4,
+        "penalidade": -2,
+        "custo": 2,
+        "bonus_especial": None,
+    },
+    {
+        "key": "robusto",
+        "nome": "Revestimento Robusto",
+        "desc": "Placas fortes e camadas densas que se assemelham a armaduras ou coletes.",
+        "bonus_defesa": 6,
+        "penalidade": -4,
+        "custo": 3,
+        "bonus_especial": None,
+    },
+    {
+        "key": "sob_medida",
+        "nome": "Sob Medida",
+        "desc": "Feito sob medida para o feiticeiro, encaixando-se perfeitamente e destacando sua agilidade.",
+        "bonus_defesa": 1,
+        "penalidade": 0,
+        "custo": 2,
+        "bonus_especial": "+2 em testes de Acrobacia e Furtividade",
+    },
 ]
 
-KITS = [
-    "Kit de Ferramentas de Ladrão",
-    "Kit Médico",
-    "Kit de Herbalismo",
-    "Kit de Artesão",
-    "Kit de Caligrafia",
-    "Kit de Explorador",
-    "Instrumentos Musicais",
-    "Kit de Disfarce",
-]
+KITS = {
+    "Ferramentas de Alfaiate": {
+        "oficio": "Alfaiate",
+        "icone": "🧵",
+        "tipo_item": "Acessórios e Uniformes",
+        "desc_curta": "Cria acessórios especiais e uniformes com revestimentos usando habilidade manual e jujutsu.",
+        "desc_longa": "O kit de ferramentas de alfaiate é focado na criação de acessórios especiais e uniformes, feitos sob medida com o uso de habilidade manual e jujutsu. Criar acessórios amaldiçoados é complexo e custoso. Do nível 1 ao 9, você só pode criar 1 acessório por interlúdio; a partir do nível 10 você pode criar 2 acessórios por interlúdio. Você pode criar um uniforme com revestimento por interlúdio.",
+        "capacidades": [
+            "Criar 1 acessório especial por interlúdio (nível 1–9) ou 2 (nível 10+)",
+            "Criar um uniforme com revestimento por interlúdio",
+            "Testes que envolvam o kit usam Ofício (Alfaiate)",
+        ],
+        "itens_criados": ["Acessórios amaldiçoados (Custo 1–4)", "Uniformes com revestimento"],
+    },
+    "Ferramentas de Alquimia": {
+        "oficio": "Alquimia",
+        "icone": "⚗️",
+        "tipo_item": "Mistura",
+        "desc_curta": "Mistura elementos e substâncias para criar venenos, óleos e misturas com efeitos especiais.",
+        "desc_longa": "O kit de ferramentas de alquimia possibilita misturar elementos e substâncias para criar algo novo, podendo ser tanto venenos quanto misturas com efeitos diferenciados. Possuir treinamento em ferramentas de alquimia permite criar itens especiais do tipo Mistura; não há um limite de quantas misturas podem ser criadas por interlúdio.",
+        "capacidades": [
+            "Criar itens especiais do tipo Mistura (venenos, óleos, substâncias)",
+            "Sem limite de Misturas criadas por interlúdio",
+            "Venenos funcionam por Contato, Inalação ou Ingestão",
+            "Testes que envolvam o kit usam Ofício (Alquimia)",
+        ],
+        "itens_criados": ["Veneno Debilitante", "Veneno Intenso", "Veneno Desnorteante", "Veneno Maldito", "Lágrima de Shinigami", "Óleo Amolador", "Óleo Flamejante", "Mistura Profana"],
+    },
+    "Ferramentas de Canalizador": {
+        "oficio": "Canalizador",
+        "icone": "🔮",
+        "tipo_item": "Espiritual",
+        "desc_curta": "Amuletos e pérolas que canalizam energia amaldiçoada e espíritos em itens espirituais.",
+        "desc_longa": "O kit de ferramentas de canalizador é um conjunto de peculiares amuletos, pérolas e outros itens espirituais, que permitem canalizar energia amaldiçoada e alguns espíritos amaldiçoados menores em itens. Possuir treinamento em ferramentas de canalizador permite criar itens especiais do tipo Espiritual; não há um limite de quantos itens espirituais podem ser criados por interlúdio.",
+        "capacidades": [
+            "Criar itens especiais do tipo Espiritual",
+            "Sem limite de itens Espirituais criados por interlúdio",
+            "Canaliza espíritos amaldiçoados menores em itens funcionais",
+            "Testes que envolvam o kit usam Ofício (Canalizador)",
+        ],
+        "itens_criados": ["Pérola Carregada", "Conjunto de Pérolas Carregadas", "Terço de Pérolas Carregadas", "Elixir da Vida"],
+    },
+    "Ferramentas de Cozinheiro": {
+        "oficio": "Cozinheiro",
+        "icone": "🍳",
+        "tipo_item": "Refeições Especiais",
+        "desc_curta": "Prepara refeições com propriedades especiais que conferem benefícios mecânicos a quem come.",
+        "desc_longa": "O kit de ferramentas de cozinheiro dá a capacidade de extrair ao máximo habilidades culinárias, criando refeições de alta qualidade que conferem benefícios. Durante um descanso, um personagem treinado pode preparar uma refeição especial (teste de Ofício Cozinheiro CD 15, +5 por benefício adicional). Falhar implica que a comida foi estragada. Os benefícios duram até o próximo descanso longo e uma mesma refeição beneficia criaturas igual ao bônus de treinamento do cozinheiro.",
+        "capacidades": [
+            "Preparar refeição especial durante um descanso (CD 15, +5 por benefício extra)",
+            "Beneficia criaturas igual ao bônus de treinamento do cozinheiro",
+            "Refeição Energética: concede PE temporária igual ao BT",
+            "Refeição Leve: +Deslocamento (3m por grau do cozinheiro)",
+            "Refeição Nutritiva: +2 em TRs (metade do BT)",
+            "Refeição Picante: +2 em jogadas de ataque",
+            "Refeição Reforçada: +2 na Defesa",
+            "Refeição Refrescante: vantagem em um teste à escolha",
+            "Refeição Revigorante: +5 PV temporários por grau do cozinheiro",
+        ],
+        "itens_criados": ["Refeições com efeitos especiais (7 tipos disponíveis)"],
+    },
+    "Ferramentas de Entalhador": {
+        "oficio": "Entalhador",
+        "icone": "🪵",
+        "tipo_item": "Talismã",
+        "desc_curta": "Entalha símbolos amaldiçoados em madeira para criar talismãs com efeitos poderosos.",
+        "desc_longa": "O kit de ferramentas de entalhador junta instrumentos e utensílios utilizados na arte de se entalhar e encravar, a qual quando unida à energia amaldiçoada permite criar amuletos e talismãs. Possuir treinamento em ferramentas de entalhador permite criar itens especiais do tipo Talismã; não há um limite de quantos talismãs podem ser criados por interlúdio. Por padrão, um talismã ocupa o espaço de uma mão para ser usado.",
+        "capacidades": [
+            "Criar itens especiais do tipo Talismã",
+            "Sem limite de Talismãs criados por interlúdio",
+            "Talismãs concedem efeitos temporários, imediatos ou duradouros",
+            "Talismã ocupa o espaço de uma mão para ser usado",
+            "Testes que envolvam o kit usam Ofício (Entalhador)",
+        ],
+        "itens_criados": ["Símbolo da Vida", "Símbolo da Vida Florescente", "Símbolo da Vida Absoluta", "Talismã de Barreira", "Talismã de Barreira Superior", "Domínio Simples Contido", "Talismã do Ápice"],
+    },
+    "Ferramentas de Ferreiro": {
+        "oficio": "Ferreiro",
+        "icone": "⚒️",
+        "tipo_item": "Armas e Escudos Amaldiçoados",
+        "desc_curta": "Forja e melhora armas e escudos, incluindo ferramentas amaldiçoadas. Essencial para manter equipamentos em campo.",
+        "desc_longa": "O kit de ferramentas de ferreiro é utilizado na criação e melhoria de armas e escudos, eventualmente utilizando do jujutsu para transformá-los em ferramentas amaldiçoadas. Possuir treinamento nas ferramentas de ferreiro permite criar tanto armas e escudos comuns quanto ferramentas amaldiçoadas. É o principal kit para manter equipamentos em bom estado e otimizá-los ao máximo.",
+        "capacidades": [
+            "Criar armas e escudos comuns e ferramentas amaldiçoadas",
+            "Descanso curto: melhora temporariamente metade do BT em equipamentos",
+            "Descanso longo: melhora BT completo de equipamentos",
+            "Arma melhorada: +2 em jogadas de ataque realizadas com ela",
+            "Escudo melhorado: +metade do BT na RD concedida enquanto empunhado",
+            "Melhorias temporárias duram até o próximo descanso",
+            "Testes que envolvam o kit usam Ofício (Ferreiro)",
+        ],
+        "itens_criados": ["Armas comuns e amaldiçoadas", "Escudos comuns e amaldiçoados"],
+    },
+    "Ferramentas de Farmacêutico": {
+        "oficio": "Farmacêutico",
+        "icone": "💊",
+        "tipo_item": "Fármacos",
+        "desc_curta": "Sintetiza fármacos, antídotos, remédios e injeções a partir de substâncias medicinais refinadas.",
+        "desc_longa": "O kit de ferramentas de farmacêutico permite cuidar efetivamente da saúde, além de sintetizar substâncias medicinais refinadas, criando antídotos ou remédios. Possuir treinamento nas ferramentas de farmacêutico permite criar itens especiais do tipo Fármacos; não há um limite de quantas medicinas podem ser criadas por interlúdio.",
+        "capacidades": [
+            "Criar itens especiais do tipo Fármaco",
+            "Sem limite de Fármacos criados por interlúdio",
+            "Cria antídotos, remédios, injeções e mixes energéticos",
+            "Testes que envolvam o kit usam Ofício (Farmacêutico)",
+        ],
+        "itens_criados": ["Antídoto Simples/Intermediário/Superior/Absoluto", "Remédio Simples/Intermediário/Complexo", "Injeção Estimulante", "Injeção de Adrenalina", "Mix Energético Pequeno/Médio/Grande"],
+    },
+}
 
 def calcular_modificador(valor):
     """Calcula o modificador de atributo"""

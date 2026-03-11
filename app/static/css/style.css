@@ -689,6 +689,29 @@ body {
 .pericia-check input:checked ~ * { color: var(--accent-light); }
 .pericia-check:has(input:checked) { border-color: var(--accent); background: rgba(124,58,237,0.08); }
 .pericias-counter { font-size: 0.85rem; color: var(--text-muted); }
+.pericia-attr { font-size: 0.75rem; color: var(--text-muted); font-weight: 500; }
+.pericia-mod-live { font-size: 0.72rem; font-weight: 700; margin-left: 2px; }
+.badge-treino { font-size: 0.6rem; font-weight: 700; color: #fb923c; background: rgba(251,146,60,0.12); border: 1px solid rgba(251,146,60,0.35); border-radius: 3px; padding: 0 3px; vertical-align: middle; }
+.badge-nivel-atual { font-size: 0.65rem; background: rgba(124,58,237,0.15); color: var(--accent-light); border: 1px solid rgba(124,58,237,0.3); border-radius: 4px; padding: 0 5px; vertical-align: middle; margin-left: 3px; }
+.badge-nivel-atual.mestre { background: rgba(245,158,11,0.12); color: #fbbf24; border-color: rgba(245,158,11,0.3); }
+
+/* ─── Seletor de atributo extras (passo 5) ─── */
+.atrib-extras-row { display: flex; gap: .6rem; margin-bottom: .8rem; flex-wrap: wrap; }
+.atrib-extras-btn {
+  display: flex; flex-direction: column; align-items: center; gap: .15rem;
+  background: var(--bg-input); border: 1px solid var(--border); border-radius: 10px;
+  padding: .6rem 1.2rem; cursor: pointer; transition: all .15s; color: var(--text);
+  min-width: 110px;
+}
+.atrib-extras-btn:hover { border-color: var(--border-hover); }
+.atrib-extras-btn.selected { border-color: var(--accent); background: rgba(124,58,237,0.15); }
+.atrib-extras-mod { font-size: 1.1rem; font-weight: 700; color: #4ade80; }
+.atrib-extras-qtd { font-size: 0.7rem; color: var(--text-muted); }
+.pericia-mod-live.mod-pos { color: #4ade80; }
+.pericia-mod-live.mod-neg { color: var(--danger); }
+.pericia-ja-escolhida { opacity: 0.55; cursor: not-allowed; border-color: var(--border) !important; background: var(--bg-input) !important; }
+.pericia-ja-escolhida:hover { border-color: var(--border) !important; }
+.badge-origem { font-size: 0.65rem; background: rgba(124,58,237,0.15); color: var(--accent-light); border: 1px solid rgba(124,58,237,0.3); border-radius: 4px; padding: 0 4px; vertical-align: middle; }
 
 /* ========== UNIFORME ========== */
 .uniforme-grid { display: flex; gap: 1rem; flex-wrap: wrap; }
@@ -780,7 +803,8 @@ body {
 .valor-label { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.3rem; }
 .valor-num { font-size: 1.5rem; font-weight: 700; color: var(--accent-light); }
 
-.equip-lista, .equip-ficha-lista { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.equip-lista { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.equip-ficha-lista { display: flex; flex-direction: column; gap: .5rem; }
 .equip-item, .equip-ficha-item {
   background: var(--bg-input);
   border: 1px solid var(--border);
@@ -788,6 +812,72 @@ body {
   padding: 0.35rem 0.75rem;
   font-size: 0.85rem;
 }
+
+/* ========== PERÍCIAS FULL (ficha) ========== */
+.pericias-full-grid { display: flex; flex-direction: column; gap: 2px; }
+.pf-row {
+  display: grid;
+  grid-template-columns: 36px 1fr 54px 36px;
+  align-items: center;
+  gap: .35rem;
+  padding: .28rem .4rem;
+  border-radius: 6px;
+  font-size: .82rem;
+  position: relative;
+  cursor: default;
+  transition: background .1s;
+}
+.pf-row:hover { background: var(--bg-card-hover); }
+.pf-row--treinada { background: rgba(124,58,237,.05); }
+.pf-attr { font-size: .65rem; font-weight: 700; color: var(--text-muted); text-align: center; }
+.pf-nome { color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pf-nivel { text-align: center; }
+.pf-badge { font-size: .6rem; font-weight: 700; padding: .1rem .3rem; border-radius: 4px; text-transform: uppercase; }
+.pf-treinado { background: rgba(124,58,237,.2); color: var(--accent-light); }
+.pf-mestre { background: rgba(251,191,36,.2); color: #fbbf24; }
+.pf-sem { color: var(--text-muted); font-size: .7rem; }
+.pf-mod { font-size: .85rem; font-weight: 700; text-align: right; color: var(--text); }
+/* Tooltip */
+.pf-tooltip {
+  display: none;
+  position: absolute;
+  left: 50%; top: calc(100% + 6px);
+  transform: translateX(-50%);
+  z-index: 200;
+  background: #11111c;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: .6rem .75rem;
+  min-width: 200px;
+  max-width: 260px;
+  box-shadow: 0 4px 20px rgba(0,0,0,.4);
+  pointer-events: none;
+}
+.pf-row:hover .pf-tooltip { display: block; }
+.pf-tt-titulo { font-weight: 700; font-size: .83rem; color: var(--accent-light); margin-bottom: .4rem; border-bottom: 1px solid var(--border); padding-bottom: .3rem; }
+.pf-tt-linha { display: flex; justify-content: space-between; font-size: .78rem; color: var(--text-muted); padding: .1rem 0; }
+.pf-tt-pos span:last-child { color: #4ade80; }
+.pf-tt-neg span:last-child { color: #f87171; }
+.pf-tt-total { display: flex; justify-content: space-between; font-size: .82rem; font-weight: 700; color: var(--text); border-top: 1px solid var(--border); margin-top: .3rem; padding-top: .3rem; }
+
+/* Kit clicável na ficha */
+.kit-clicavel { cursor: pointer; display: flex; align-items: center; gap: .4rem; }
+.kit-clicavel:hover { border-color: var(--accent); color: var(--accent-light); }
+.kit-clicavel-hint { font-size: .65rem; color: var(--accent-light); opacity: .7; margin-left: auto; }
+/* Modal do Kit */
+.kit-modal-box { max-width: 560px; width: 95%; }
+.kit-modal-titulo { font-size: 1.1rem; font-weight: 700; color: var(--accent-light); margin-bottom: .25rem; }
+.kit-modal-oficio { font-size: .8rem; color: var(--text-muted); margin-bottom: .75rem; }
+.kit-modal-desc { font-size: .83rem; color: var(--text-muted); line-height: 1.55; margin-bottom: .75rem; }
+.kit-modal-label { font-size: .7rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); letter-spacing: .05em; margin-bottom: .35rem; }
+.kit-modal-lista { margin: 0; padding-left: 1.2rem; font-size: .82rem; line-height: 1.7; }
+.kit-modal-itens { display: flex; flex-wrap: wrap; gap: .3rem; }
+.kit-modal-item-tag { background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px; padding: .2rem .55rem; font-size: .75rem; }
+.equip-tag-pen { font-size: 0.7rem; background: rgba(248,113,113,0.15); color: #f87171; border: 1px solid rgba(248,113,113,0.3); border-radius: 4px; padding: 0 5px; margin-left: 4px; }
+.equip-tag-bonus { font-size: 0.7rem; background: rgba(251,191,36,0.15); color: #fbbf24; border: 1px solid rgba(251,191,36,0.3); border-radius: 4px; padding: 0 5px; margin-left: 4px; }
+.inv-titulo { font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin: 0.75rem 0 0.35rem; }
+.inv-lista { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.inv-item { background: var(--bg-input); border: 1px solid var(--border); border-radius: 6px; padding: 0.25rem 0.6rem; font-size: 0.8rem; }
 
 /* ========== FICHA PRINCIPAL ========== */
 .ficha-container { max-width: 1200px; margin: 0 auto; }
@@ -1037,14 +1127,23 @@ body {
 }
 
 /* Feitiços */
-.feiticos-lista { display: flex; flex-direction: column; gap: 0.4rem; }
-.feitico-item {
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 0.5rem 0.75rem;
-  font-size: 0.9rem;
-}
+#feiticos-lista { display: flex; flex-direction: column; gap: .4rem; }
+.feitico-card { background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; padding: .55rem .75rem; }
+.feitico-header { display: flex; justify-content: space-between; align-items: center; }
+.feitico-nome { font-size: .9rem; font-weight: 600; color: var(--accent-light); }
+.feitico-btns { display: flex; gap: .3rem; opacity: 0; transition: opacity .15s; }
+.feitico-card:hover .feitico-btns { opacity: 1; }
+.feitico-desc { font-size: .8rem; color: var(--text-dim); margin-top: .3rem; line-height: 1.5; white-space: pre-wrap; border-left: 2px solid var(--border); padding-left: .5rem; }
+.btn-icon { background: none; border: none; cursor: pointer; font-size: .9rem; padding: .1rem .25rem; border-radius: 4px; }
+.btn-icon:hover { background: var(--bg-card-hover); }
+.btn-danger-icon:hover { background: rgba(239,68,68,.15); }
+.feitico-add-form { display: flex; align-items: center; gap: .4rem; margin-top: .6rem; padding-top: .6rem; border-top: 1px solid var(--border); }
+.feitico-add-fields { flex: 1; display: flex; flex-direction: column; gap: .3rem; min-width: 0; }
+.feitico-add-input { width: 100%; padding: .3rem .55rem; font-size: .85rem; box-sizing: border-box; }
+.btn-feitico-check { background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: .3rem .65rem; cursor: pointer; font-size: .95rem; line-height: 1; flex-shrink: 0; }
+.btn-feitico-check:hover { opacity: .85; }
+.btn-feitico-novo { background: none; border: 1px solid var(--border); border-radius: 6px; color: var(--text-muted); cursor: pointer; font-size: .9rem; padding: .2rem .55rem; margin-top: .5rem; transition: border-color .15s, color .15s; }
+.btn-feitico-novo:hover { border-color: var(--accent); color: var(--accent-light); }
 
 /* Notas */
 .notas-text {
@@ -1318,6 +1417,9 @@ body {
 .check-item { display: flex; align-items: center; gap: 0.4rem; cursor: pointer; padding: 0.3rem 0.5rem; border-radius: 6px; transition: background 0.15s; font-size: 0.88rem; }
 .check-item:hover { background: var(--bg-card-hover); }
 .check-item input[type=checkbox] { accent-color: var(--accent); }
+.pericia-ja-treinada { border: 1px solid rgba(251,191,36,0.45); background: rgba(251,191,36,0.06); }
+.pericia-ja-treinada:hover { background: rgba(251,191,36,0.12) !important; border-color: rgba(251,191,36,0.7); }
+.alert-mestre-info { font-size: .82rem; color: #fbbf24; background: rgba(251,191,36,0.08); border: 1px solid rgba(251,191,36,0.25); border-radius: 8px; padding: .5rem .75rem; margin-bottom: .75rem; line-height: 1.5; }
 
 /* ========== RESPONSIVE ========== */
 @media (max-width: 768px) {
@@ -1358,6 +1460,7 @@ body {
 .equip-prop { background: #1e1b4b; color: #a5b4fc; border-radius: 99px; padding: .08rem .35rem; font-size: .67rem; }
 .equip-arma-critico { font-size: .75rem; color: #fca5a5; margin-bottom: .25rem; }
 .equip-arma-obs { font-size: .72rem; color: var(--text-muted); line-height: 1.4; border-left: 2px solid var(--border); padding-left: .4rem; }
+.equip-uni-neg { color: var(--danger) !important; }
 
 /* ─── Nav user dropdown ─── */
 .nav-user-menu{position:relative;cursor:pointer}

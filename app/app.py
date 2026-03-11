@@ -9,7 +9,7 @@ from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from game_data import (
-    ORIGENS, ESPECIALIZACOES, PERICIAS, TESTES_RESISTENCIA,
+    ORIGENS, ESPECIALIZACOES, PERICIAS, PERICIAS_TREINO, TESTES_RESISTENCIA,
     ARMAS_INICIAIS, UNIFORMES, KITS, ATRIBUTOS, ATRIBUTOS_LABELS,
     XP_TABLE, calcular_modificador, calcular_grau, calcular_pv,
     calcular_pe, calcular_bonus_treinamento, VALORES_FIXOS, POINT_BUY_COSTS,
@@ -141,17 +141,19 @@ def calcular_ficha(dados):
         if nivel >= 10:
             pv_max += mod_con
 
-    # Defesa base
-    defesa_base = 10 + mod_dex + (nivel // 2)
+    # Defesa base = 10 + DES + nível/2, mais bônus da modificação do uniforme
+    uniforme_nome = dados.get("uniforme", "Uniforme Comum")
+    uni_data = next((u for u in UNIFORMES if u["nome"] == uniforme_nome), UNIFORMES[0])
+    defesa_base = 10 + mod_dex + (nivel // 2) + uni_data["bonus_defesa"]
+
     if spec_key == "restringido":
         mod_forca = calcular_modificador(attrs.get("forca", 10))
         mod_const = calcular_modificador(attrs.get("constituicao", 10))
         bonus_restringido = min(max(mod_forca, mod_const), nivel)
         defesa_base += bonus_restringido
 
-    bonus_uniformes = {"Uniforme Reforçado": 2, "Armadura Leve": 1}
-    uniforme = dados.get("uniforme", "Uniforme Comum")
-    defesa_base += bonus_uniformes.get(uniforme, 0)
+    penalidade_uniforme = uni_data["penalidade"]
+    bonus_sob_medida = uni_data["key"] == "sob_medida"
 
     # Deslocamento
     deslocamento = 9  # metros
@@ -180,7 +182,7 @@ def calcular_ficha(dados):
     pericias_calc = {}
     for nome, attr in PERICIAS.items():
         nivel_pericia = pericias_dict.get(nome)  # None | "treinado" | "mestre"
-        bonus = 0 if not nivel_pericia else (bt if nivel_pericia == "treinado" else bt * 2)
+        bonus = 0 if not nivel_pericia else (bt if nivel_pericia == "treinado" else bt + bt // 2)
         total = mods_attrs[attr] + bonus
         pericias_calc[nome] = {
             "atributo": attr,
@@ -205,6 +207,8 @@ def calcular_ficha(dados):
         "pe_max": pe_max,
         "pe_label": pe_label,
         "defesa": defesa_base,
+        "penalidade_uniforme": penalidade_uniforme,
+        "bonus_sob_medida": bonus_sob_medida,
         "iniciativa": iniciativa,
         "atencao": atencao,
         "deslocamento": deslocamento,
@@ -529,7 +533,10 @@ def criar_passo2():
     session["criacao"] = dados
     return render_template("criar_passo2.html",
                            dados=dados,
-                           origens=ORIGENS)
+                           origens=ORIGENS,
+                           pericias=PERICIAS,
+                           pericias_treino=PERICIAS_TREINO,
+                           attr_abrev=ATTR_ABREV)
 
 
 @app.route("/criar/passo3", methods=["POST"])
@@ -558,12 +565,19 @@ def criar_passo3():
         }
 
     session["criacao"] = dados
+
+    pericias_anteriores = []
+    if dados.get("origem") == "herdado_personalizado":
+        pericias_anteriores = dados.get("clan_personalizado", {}).get("pericias", [])
+
     return render_template("criar_passo3.html",
                            dados=dados,
                            especializacoes=ESPECIALIZACOES,
                            atributos_labels=ATRIBUTOS_LABELS,
                            pericias=PERICIAS,
-                           attr_abrev=ATTR_ABREV)
+                           pericias_treino=PERICIAS_TREINO,
+                           attr_abrev=ATTR_ABREV,
+                           pericias_anteriores=pericias_anteriores)
 
 
 @app.route("/criar/passo4", methods=["POST"])
@@ -573,11 +587,16 @@ def criar_passo4():
     dados["especializacao"] = request.form.get("especializacao", "lutador")
     dados["atributo_chave"] = request.form.get("atributo_chave", "forca")
     dados["tr_escolhido"] = request.form.get("tr_escolhido", "Fortitude")
-    pericias_json = request.form.get("pericias_json", "{}")
-    try:
-        dados["pericias_treinadas"] = json.loads(pericias_json)
-    except Exception:
-        dados["pericias_treinadas"] = {}
+    pericias_json = request.form.get("pericias_json", "")
+    if pericias_json:
+        try:
+            dados["pericias_treinadas"] = json.loads(pericias_json)
+        except Exception:
+            dados["pericias_treinadas"] = {}
+    else:
+        # passo3 envia checkboxes com name="pericias"
+        pericias_list = request.form.getlist("pericias")
+        dados["pericias_treinadas"] = {p: "treinado" for p in pericias_list}
 
     session["criacao"] = dados
     return render_template("criar_passo4.html",
@@ -597,7 +616,9 @@ def criar_passo5():
     dados["arma1"] = request.form.get("arma1", "")
     dados["arma2"] = request.form.get("arma2", "")
     dados["uniforme"] = request.form.get("uniforme", "Uniforme Comum")
-    dados["kit"] = request.form.get("kit", "")
+    kit_nome = request.form.get("kit", "")
+    dados["kit"] = kit_nome
+    dados["inventario"] = []
 
     # Nível inicial
     dados["nivel"] = 1
@@ -615,7 +636,10 @@ def criar_passo5():
                            dados=dados,
                            origens=ORIGENS,
                            especializacoes=ESPECIALIZACOES,
-                           atributos_labels=ATRIBUTOS_LABELS)
+                           atributos_labels=ATRIBUTOS_LABELS,
+                           pericias=PERICIAS,
+                           pericias_treino=PERICIAS_TREINO,
+                           attr_abrev=ATTR_ABREV)
 
 
 @app.route("/criar/salvar", methods=["POST"])
@@ -625,9 +649,23 @@ def criar_salvar():
     if not dados:
         return redirect(url_for("criar"))
 
-    dados["feiticos"] = request.form.getlist("feiticos") or []
     dados["notas"] = request.form.get("notas", "")
     dados["habilidades_extras"] = request.form.getlist("habilidades_extras") or []
+    dados.setdefault("feiticos", [])
+
+    # Merge pericias extras (INT/SAB bonus training from passo 5)
+    pericias_extras_raw = request.form.get("pericias_extras_json", "{}")
+    try:
+        pericias_extras = json.loads(pericias_extras_raw)
+    except Exception:
+        pericias_extras = {}
+    pt = dados.get("pericias_treinadas", {})
+    if isinstance(pt, list):
+        pt = {p: "treinado" for p in pt}
+    for nome, nivel in pericias_extras.items():
+        if nome in PERICIAS:
+            pt[nome] = nivel
+    dados["pericias_treinadas"] = pt
 
     dados = calcular_ficha(dados)
 
@@ -664,6 +702,43 @@ def ver_personagem(pid):
     spec = ESPECIALIZACOES.get(dados.get("especializacao", ""), {})
     origem = ORIGENS.get(dados.get("origem", ""), {})
 
+    # Pré-calcular todas as perícias com modificadores e fontes
+    pt_raw = dados.get("pericias_treinadas", {})
+    if isinstance(pt_raw, list):
+        pt_raw = {p: "treinado" for p in pt_raw}
+    calc = dados.get("calculado", {})
+    bt = calc.get("bonus_treinamento", 2)
+    sob_medida = calc.get("bonus_sob_medida", False)
+    penalidade_uni = calc.get("penalidade_uniforme", 0)
+    attr_mods = {
+        "forca":        calc.get("mod_forca", 0),
+        "destreza":     calc.get("mod_destreza", 0),
+        "constituicao": calc.get("mod_constituicao", 0),
+        "inteligencia": calc.get("mod_inteligencia", 0),
+        "sabedoria":    calc.get("mod_sabedoria", 0),
+        "presenca":     calc.get("mod_presenca", 0),
+    }
+    pericias_calc = {}
+    for nome, attr in PERICIAS.items():
+        treinamento = pt_raw.get(nome)
+        base_mod = attr_mods.get(attr, 0)
+        train_bonus = bt if treinamento == "treinado" else (bt + bt // 2 if treinamento == "mestre" else 0)
+        especiais = []
+        if attr == "destreza" and sob_medida:
+            especiais.append({"fonte": "Uniforme Sob Medida", "valor": 2})
+        if attr == "destreza" and penalidade_uni != 0:
+            especiais.append({"fonte": f"Penalidade ({dados.get('uniforme', 'uniforme')})", "valor": penalidade_uni})
+        total = base_mod + train_bonus + sum(e["valor"] for e in especiais)
+        pericias_calc[nome] = {
+            "attr": attr,
+            "base_mod": base_mod,
+            "treinamento": treinamento,
+            "train_bonus": train_bonus,
+            "especiais": especiais,
+            "total": total,
+            "requer_treino": nome in PERICIAS_TREINO,
+        }
+
     return render_template("ficha.html",
                            pid=pid,
                            dados=dados,
@@ -673,7 +748,11 @@ def ver_personagem(pid):
                            atributos_labels=ATRIBUTOS_LABELS,
                            xp_table=XP_TABLE,
                            armas_dados=ARMAS_DADOS,
-                           escudos_dados=ESCUDOS_DADOS)
+                           escudos_dados=ESCUDOS_DADOS,
+                           kits=KITS,
+                           uniformes=UNIFORMES,
+                           pericias_calc=pericias_calc,
+                           attr_abrev=ATTR_ABREV)
 
 
 @app.route("/personagem/<int:pid>/editar", methods=["GET", "POST"])
@@ -701,7 +780,8 @@ def editar_personagem(pid):
         dados["ligacoes"] = request.form.get("ligacoes", dados.get("ligacoes", ""))
         dados["complicacoes"] = request.form.get("complicacoes", dados.get("complicacoes", ""))
         dados["notas"] = request.form.get("notas", dados.get("notas", ""))
-        dados["feiticos"] = request.form.get("feiticos_text", "").splitlines()
+        feiticos_text = request.form.get("feiticos_text", "")
+        dados["feiticos"] = [{"nome": l, "desc": ""} for l in feiticos_text.splitlines() if l.strip()]
         dados["xp"] = int(request.form.get("xp", dados.get("xp", 0)))
         dados["pv_atual"] = int(request.form.get("pv_atual", dados.get("pv_atual", 1)))
         dados["pe_atual"] = int(request.form.get("pe_atual", dados.get("pe_atual", 0)))
@@ -813,6 +893,21 @@ def subir_nivel(pid):
         "pontos_atributo_disponivel": dados.get("pontos_atributo_disponivel", 0),
         "mensagem": f"Subiu para o nível {novo_nivel}! Ganhou {ganho_pv} PV."
     })
+
+
+@app.route("/personagem/<int:pid>/salvar_feiticos", methods=["POST"])
+@login_required
+def salvar_feiticos(pid):
+    row, dados = _get_personagem(pid)
+    if not row:
+        return jsonify({"erro": "Não encontrado"}), 404
+    try:
+        feiticos = json.loads(request.get_json(force=True).get("feiticos_json", "[]"))
+    except Exception:
+        return jsonify({"erro": "JSON inválido"}), 400
+    dados["feiticos"] = feiticos
+    _save_personagem(pid, dados)
+    return jsonify({"sucesso": True})
 
 
 @app.route("/personagem/<int:pid>/atualizar_pv", methods=["POST"])
@@ -1011,6 +1106,7 @@ def criar_invocacao(pid):
                            inv_grades=INVOCACAO_GRADES, inv_dano=INVOCACAO_DANO,
                            inv_auxilio=INVOCACAO_AUXILIO, inv_carac=INVOCACAO_CARAC,
                            inv_area=INVOCACAO_AREA, pericias=PERICIAS,
+                           pericias_treino=PERICIAS_TREINO,
                            atributos=ATRIBUTOS, atributos_labels=ATRIBUTOS_LABELS,
                            nivel=nivel, bt=bt)
 
@@ -1048,6 +1144,7 @@ def editar_invocacao(pid, iid):
                            inv_grades=INVOCACAO_GRADES, inv_dano=INVOCACAO_DANO,
                            inv_auxilio=INVOCACAO_AUXILIO, inv_carac=INVOCACAO_CARAC,
                            inv_area=INVOCACAO_AREA, pericias=PERICIAS,
+                           pericias_treino=PERICIAS_TREINO,
                            atributos=ATRIBUTOS, atributos_labels=ATRIBUTOS_LABELS,
                            nivel=nivel, bt=bt)
 

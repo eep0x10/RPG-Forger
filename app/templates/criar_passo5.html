@@ -117,20 +117,70 @@
       </div>
     </div>
 
+    <!-- Perícias Extras por INT/SAB -->
+    {% set mod_int = ((dados.atributos.get('inteligencia', 10) - 10) // 2) %}
+    {% set mod_sab = ((dados.atributos.get('sabedoria', 10) - 10) // 2) %}
+    {% if mod_int > 0 or mod_sab > 0 %}
+    {% set bt = dados.calculado.bonus_treinamento %}
+    {% set mestre_bonus = bt + (bt // 2) %}
+    <div class="form-section">
+      <h3 class="section-title">📚 Perícias Adicionais</h3>
+      <p class="text-muted">Seu personagem pode treinar perícias extras com base no seu modificador de INT ou SAB.
+        Escolha o atributo e selecione as perícias.</p>
+      <div class="alert-mestre-info">
+        ⭐ Perícias <strong>já treinadas</strong> (destacadas em dourado) sobem para <strong>Mestre</strong> se selecionadas novamente —
+        bônus de <strong>+{{ mestre_bonus }}</strong> (BT {{ bt }} + BT/2 {{ bt // 2 }}) em vez de +{{ bt }}.
+      </div>
+
+      <!-- Seleção do atributo -->
+      <div class="atrib-extras-row">
+        {% if mod_int > 0 %}
+        <button type="button" class="atrib-extras-btn" id="btn-extras-int"
+                onclick="selecionarAtribExtras('inteligencia', {{ mod_int }})">
+          INT <span class="atrib-extras-mod">+{{ mod_int }}</span>
+          <span class="atrib-extras-qtd">{{ mod_int }} perícia{{ 's' if mod_int > 1 else '' }}</span>
+        </button>
+        {% endif %}
+        {% if mod_sab > 0 %}
+        <button type="button" class="atrib-extras-btn" id="btn-extras-sab"
+                onclick="selecionarAtribExtras('sabedoria', {{ mod_sab }})">
+          SAB <span class="atrib-extras-mod">+{{ mod_sab }}</span>
+          <span class="atrib-extras-qtd">{{ mod_sab }} perícia{{ 's' if mod_sab > 1 else '' }}</span>
+        </button>
+        {% endif %}
+      </div>
+
+      <div class="pericias-counter" style="margin:.6rem 0">
+        Selecionadas: <strong id="extras-count">0</strong> / <strong id="extras-max">0</strong>
+      </div>
+
+      <div class="pericias-check-grid" id="pericias-extras-grid">
+        {% for p, attr in pericias.items() %}
+        {% set atual = dados.pericias_treinadas.get(p) if dados.pericias_treinadas is mapping else '' %}
+        <label class="check-item {% if atual == 'treinado' %}pericia-ja-treinada{% elif atual == 'mestre' %}pericia-ja-escolhida{% endif %}">
+          <input type="checkbox" class="extras-check" value="{{ p }}"
+                 data-atual="{{ atual or '' }}"
+                 {% if atual == 'mestre' %}disabled{% endif %}>
+          <span>{{ p }}{% if p in pericias_treino %} <span class="badge-treino">*T</span>{% endif %}
+            <span class="pericia-attr">({{ attr_abrev[attr] }})</span>
+            {% if atual == 'treinado' %}<span class="badge-nivel-atual">Trei. → Mestre +{{ mestre_bonus }}</span>
+            {% elif atual == 'mestre' %}<span class="badge-nivel-atual mestre">Já Mestre</span>
+            {% endif %}
+          </span>
+        </label>
+        {% endfor %}
+      </div>
+      <input type="hidden" name="pericias_extras_json" id="pericias-extras-input" value="{}">
+    </div>
+    {% endif %}
+
     <!-- Campos adicionais antes de salvar -->
     <div class="form-section">
       <h3 class="section-title">✨ Detalhes Finais</h3>
-      <div class="form-grid-2">
-        <div class="form-group">
-          <label class="form-label">Feitiços (um por linha)</label>
-          <textarea name="feiticos" class="form-input form-textarea"
-                    placeholder="Lista seus feitiços aqui...&#10;Ex: Chave Inversa&#10;Divergente: Punho Azul"></textarea>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Habilidades Extras / Notas</label>
-          <textarea name="notas" class="form-input form-textarea"
-                    placeholder="Notas adicionais, histórico, detalhes da técnica..."></textarea>
-        </div>
+      <div class="form-group">
+        <label class="form-label">Habilidades Extras / Notas</label>
+        <textarea name="notas" class="form-input form-textarea"
+                  placeholder="Notas adicionais, histórico, detalhes da técnica..."></textarea>
       </div>
     </div>
 
@@ -142,4 +192,64 @@
     </div>
   </form>
 </div>
+{% endblock %}
+
+{% block scripts %}
+{% set mod_int = ((dados.atributos.get('inteligencia', 10) - 10) // 2) %}
+{% set mod_sab = ((dados.atributos.get('sabedoria', 10) - 10) // 2) %}
+{% if mod_int > 0 or mod_sab > 0 %}
+<script>
+const MOD_INT = {{ mod_int }};
+const MOD_SAB = {{ mod_sab }};
+let maxExtras = 0;
+let atribExtras = null;
+
+function selecionarAtribExtras(attr, mod) {
+  atribExtras = attr;
+  maxExtras = mod;
+  document.getElementById('extras-max').textContent = mod;
+
+  document.querySelectorAll('.atrib-extras-btn').forEach(b => b.classList.remove('selected'));
+  const id = attr === 'inteligencia' ? 'btn-extras-int' : 'btn-extras-sab';
+  document.getElementById(id)?.classList.add('selected');
+
+  const checked = Array.from(document.querySelectorAll('.extras-check:checked'));
+  checked.forEach((c, i) => { if (i >= mod) c.checked = false; });
+  atualizarExtras();
+}
+
+function atualizarExtras() {
+  const checked = document.querySelectorAll('.extras-check:checked');
+  document.getElementById('extras-count').textContent = checked.length;
+  const result = {};
+  checked.forEach(c => {
+    result[c.value] = c.dataset.atual === 'treinado' ? 'mestre' : 'treinado';
+  });
+  document.getElementById('pericias-extras-input').value = JSON.stringify(result);
+}
+
+document.querySelectorAll('.extras-check').forEach(c => {
+  c.addEventListener('change', function() {
+    if (!atribExtras) { this.checked = false; return; }
+    const checked = document.querySelectorAll('.extras-check:checked');
+    if (this.checked && checked.length > maxExtras) {
+      this.checked = false;
+      return;
+    }
+    atualizarExtras();
+  });
+});
+
+// Auto-select default attribute on load
+{% if mod_int > 0 and mod_sab > 0 %}
+  {% if mod_int >= mod_sab %}selecionarAtribExtras('inteligencia', MOD_INT);
+  {% else %}selecionarAtribExtras('sabedoria', MOD_SAB);
+  {% endif %}
+{% elif mod_int > 0 %}
+selecionarAtribExtras('inteligencia', MOD_INT);
+{% else %}
+selecionarAtribExtras('sabedoria', MOD_SAB);
+{% endif %}
+</script>
+{% endif %}
 {% endblock %}

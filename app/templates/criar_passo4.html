@@ -55,13 +55,48 @@
     <!-- Uniforme -->
     <div class="form-section">
       <h3 class="section-title">🥋 Uniforme</h3>
+      <p class="text-muted">Todo feiticeiro começa com um uniforme comum. Você pode escolher uma <strong>modificação</strong> que altera sua proteção e propriedades. A DEF base é sempre <strong>10 + DES + nível/2</strong>, e a modificação adiciona um bônus fixo.</p>
       <div class="uniforme-grid">
+        {% set mod_dex = ((dados.atributos.get('destreza', 10) - 10) // 2) %}
+        {% set def_base = 10 + mod_dex %}
         {% for uni in uniformes %}
+        {% set def_preview = def_base + uni.bonus_defesa %}
         <label class="uniforme-option">
           <input type="radio" name="uniforme" value="{{ uni.nome }}"
-                 {% if loop.first %}checked{% endif %}>
-          <div class="uniforme-card">
+                 {% if loop.first %}checked{% endif %}
+                 onchange="atualizarPreviewDEF()">
+          <div class="uniforme-card"
+               data-bonus="{{ uni.bonus_defesa }}"
+               data-defbase="{{ def_base }}">
             <div class="uniforme-nome">{{ uni.nome }}</div>
+            <div class="uniforme-stats-row">
+              <span class="uni-stat">
+                <span class="uni-stat-lbl">Bônus DEF</span>
+                <span class="uni-stat-val uni-bonus">{% if uni.bonus_defesa > 0 %}+{{ uni.bonus_defesa }}{% else %}—{% endif %}</span>
+              </span>
+              <span class="uni-stat">
+                <span class="uni-stat-lbl">DEF ~lv1</span>
+                <span class="uni-stat-val">{{ def_preview }}</span>
+              </span>
+              {% if uni.penalidade != 0 %}
+              <span class="uni-stat uni-penalidade">
+                <span class="uni-stat-lbl">Penalidade DES</span>
+                <span class="uni-stat-val">{{ uni.penalidade }}</span>
+              </span>
+              {% else %}
+              <span class="uni-stat uni-ok">
+                <span class="uni-stat-lbl">Penalidade</span>
+                <span class="uni-stat-val">—</span>
+              </span>
+              {% endif %}
+              <span class="uni-stat">
+                <span class="uni-stat-lbl">Custo</span>
+                <span class="uni-stat-val">{{ uni.custo if uni.custo > 0 else '—' }}</span>
+              </span>
+            </div>
+            {% if uni.bonus_especial %}
+            <div class="uni-especial">✨ {{ uni.bonus_especial }}</div>
+            {% endif %}
             <div class="uniforme-desc">{{ uni.desc }}</div>
           </div>
         </label>
@@ -72,13 +107,43 @@
     <!-- Kit -->
     <div class="form-section">
       <h3 class="section-title">🎒 Kit de Ferramentas</h3>
-      <div class="form-group">
-        <select name="kit" class="form-input form-select">
-          <option value="">— Nenhum —</option>
-          {% for kit in kits %}
-          <option value="{{ kit }}">{{ kit }}</option>
-          {% endfor %}
-        </select>
+      <p class="text-muted">Kits de ferramentas são usados durante interlúdios para criar itens especiais ou usar mecânicas únicas. Você só pode usar um kit no qual seja treinado (Ofício).</p>
+      <div class="kit-grid" id="kit-grid">
+        {% for nome, kit in kits.items() %}
+        <label class="kit-option">
+          <input type="radio" value="{{ nome }}" onchange="selecionarKit(this)">
+          <div class="kit-card">
+            <div class="kit-card-header">
+              <span class="kit-icone">{{ kit.icone }}</span>
+              <div>
+                <div class="kit-nome">{{ nome }}</div>
+                <div class="kit-oficio">Ofício: {{ kit.oficio }}</div>
+              </div>
+              <span class="kit-tipo-badge">{{ kit.tipo_item }}</span>
+            </div>
+            <div class="kit-desc-curta">{{ kit.desc_curta }}</div>
+          </div>
+        </label>
+        {% endfor %}
+      </div>
+      <input type="hidden" name="kit" id="kit-hidden" value="">
+
+      <!-- Painel de detalhes do kit selecionado -->
+      <div id="kit-detalhe" style="display:none; margin-top:1rem">
+        <div class="kit-detalhe-box">
+          <div class="kit-detalhe-titulo" id="kd-titulo"></div>
+          <p class="kit-detalhe-desc" id="kd-desc"></p>
+          <div class="kit-detalhe-cols">
+            <div>
+              <div class="kit-detalhe-label">⚙️ O que você pode fazer</div>
+              <ul class="kit-cap-lista" id="kd-caps"></ul>
+            </div>
+            <div>
+              <div class="kit-detalhe-label">📦 Itens que pode criar</div>
+              <div class="kit-itens-lista" id="kd-itens"></div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -99,7 +164,7 @@
         </div>
         <div class="preview-item">
           <span class="preview-label">Defesa Base</span>
-          <span class="preview-val">{{ 10 + mod_dex }}</span>
+          <span class="preview-val" id="preview-def">{{ 10 + mod_dex }}</span>
         </div>
         <div class="preview-item">
           <span class="preview-label">Iniciativa</span>
@@ -126,6 +191,7 @@
 <script>
 const ARMAS_DADOS = {{ armas_dados_json|safe }};
 const ESCUDOS_DADOS = {{ escudos_dados_json|safe }};
+const KITS_DATA = {{ kits | tojson }};
 
 function renderArmaInfo(nome) {
   const a = ARMAS_DADOS[nome] || ESCUDOS_DADOS[nome];
@@ -157,6 +223,21 @@ function renderArmaInfo(nome) {
   return html;
 }
 
+function selecionarKit(radio) {
+  document.querySelectorAll('.kit-option').forEach(o => o.classList.remove('selected'));
+  radio.closest('.kit-option').classList.add('selected');
+  document.getElementById('kit-hidden').value = radio.value;
+  // Remove o input radio duplicado — o hidden leva o valor
+  const nome = radio.value;
+  const kit = KITS_DATA[nome];
+  if (!kit) return;
+  document.getElementById('kd-titulo').textContent = kit.icone + ' ' + nome;
+  document.getElementById('kd-desc').textContent = kit.desc_longa;
+  document.getElementById('kd-caps').innerHTML = kit.capacidades.map(c => `<li>${c}</li>`).join('');
+  document.getElementById('kd-itens').innerHTML = kit.itens_criados.map(i => `<div class="kit-item-tag">${i}</div>`).join('');
+  document.getElementById('kit-detalhe').style.display = 'block';
+}
+
 function mostrarStats(selectId, infoId) {
   const nome = document.getElementById(selectId).value;
   const card = document.getElementById(infoId);
@@ -184,5 +265,51 @@ function mostrarStats(selectId, infoId) {
 .ai-critico{font-size:.78rem;color:#fca5a5;margin-bottom:.3rem}
 .ai-critico-lbl{font-weight:700}
 .ai-obs{font-size:.75rem;color:var(--muted);border-left:2px solid var(--border);padding-left:.5rem;line-height:1.4}
+/* Kit grid */
+.kit-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:.6rem;margin-bottom:.5rem}
+.kit-option{cursor:pointer;display:block}
+.kit-option input{display:none}
+.kit-card{background:var(--bg-input);border:2px solid var(--border);border-radius:10px;padding:.75rem;transition:all .15s}
+.kit-option:hover .kit-card{border-color:var(--border-hover)}
+.kit-option.selected .kit-card{border-color:var(--accent);background:rgba(124,58,237,.08)}
+.kit-card-header{display:flex;align-items:flex-start;gap:.6rem;margin-bottom:.4rem}
+.kit-icone{font-size:1.4rem;line-height:1;flex-shrink:0}
+.kit-nome{font-weight:700;font-size:.9rem;color:var(--text)}
+.kit-oficio{font-size:.72rem;color:var(--text-muted);margin-top:.1rem}
+.kit-tipo-badge{margin-left:auto;font-size:.65rem;background:rgba(124,58,237,.15);color:var(--accent-light);border:1px solid rgba(124,58,237,.3);border-radius:6px;padding:.15rem .4rem;white-space:nowrap;flex-shrink:0}
+.kit-desc-curta{font-size:.78rem;color:var(--text-muted);line-height:1.4}
+/* Painel de detalhe */
+.kit-detalhe-box{background:var(--surface-2);border:1px solid var(--accent);border-radius:10px;padding:1rem}
+.kit-detalhe-titulo{font-size:1rem;font-weight:700;color:var(--accent-light);margin-bottom:.5rem}
+.kit-detalhe-desc{font-size:.82rem;color:var(--text-muted);line-height:1.5;margin-bottom:.75rem}
+.kit-detalhe-cols{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+@media(max-width:600px){.kit-detalhe-cols{grid-template-columns:1fr}}
+.kit-detalhe-label{font-size:.7rem;font-weight:700;text-transform:uppercase;color:var(--text-muted);letter-spacing:.05em;margin-bottom:.4rem}
+.kit-cap-lista{margin:0;padding-left:1.2rem;font-size:.8rem;color:var(--text);line-height:1.6}
+/* Kit itens */
+.kit-itens-lista{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.25rem}
+.kit-item-tag{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:.25rem .6rem;font-size:.75rem;color:var(--text)}
+/* Uniforme cards */
+.uniforme-stats-row{display:flex;gap:.4rem;flex-wrap:wrap;margin:.4rem 0}
+.uni-stat{display:flex;flex-direction:column;background:var(--surface);border-radius:6px;padding:.25rem .5rem;font-size:.75rem}
+.uni-stat-lbl{font-size:.6rem;text-transform:uppercase;color:var(--text-muted)}
+.uni-stat-val{font-weight:700;color:var(--text)}
+.uni-bonus{color:#a78bfa;font-size:.9rem}
+.uni-penalidade .uni-stat-val{color:#f87171}
+.uni-ok .uni-stat-val{color:var(--text-muted)}
+.uni-especial{font-size:.78rem;color:#fbbf24;margin-bottom:.3rem}
 </style>
+<script>
+function atualizarPreviewDEF() {
+  const checked = document.querySelector('input[name="uniforme"]:checked');
+  if (!checked) return;
+  const card = checked.closest('.uniforme-option').querySelector('.uniforme-card');
+  const defBase = parseInt(card.dataset.defbase);
+  const bonus = parseInt(card.dataset.bonus);
+  const nivel = {{ dados.nivel | default(1) }};
+  document.getElementById('preview-def').textContent = defBase + bonus + Math.floor(nivel / 2);
+}
+// Inicializar preview
+atualizarPreviewDEF();
+</script>
 {% endblock %}

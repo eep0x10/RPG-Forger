@@ -91,10 +91,12 @@
       <h3 class="section-title">📚 Perícias</h3>
       <p id="pericias-instrucoes" class="text-muted">Escolha as perícias conforme os treinamentos da sua especialização.</p>
       <div class="pericias-grid" id="pericias-grid">
-        {% for p in pericias %}
-        <label class="pericia-check">
-          <input type="checkbox" name="pericias" value="{{ p }}" onchange="verificarPericias()">
-          <span>{{ p }}</span>
+        {% for p, attr in pericias.items() %}
+        {% set ja_escolhida = p in pericias_anteriores %}
+        {% set mod_val = ((dados.atributos.get(attr, 10) - 10) // 2) %}
+        <label class="pericia-check{% if ja_escolhida %} pericia-ja-escolhida{% endif %}">
+          <input type="checkbox" name="pericias" value="{{ p }}" onchange="verificarPericias()"{% if ja_escolhida %} disabled{% endif %}>
+          <span>{{ p }}{% if p in pericias_treino %} <span class="badge-treino">*T</span>{% endif %} <span class="pericia-attr">({{ attr_abrev[attr] }}) <span class="pericia-mod-live {% if mod_val >= 0 %}mod-pos{% else %}mod-neg{% endif %}">{{ '+' if mod_val >= 0 else '' }}{{ mod_val }}</span></span>{% if ja_escolhida %} <span class="badge-origem">origem</span>{% endif %}</span>
         </label>
         {% endfor %}
       </div>
