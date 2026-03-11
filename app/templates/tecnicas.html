@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block title %}Técnicas – {{ dados.nome }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">⚡ Habilidades de Técnica</h1>
+    <p class="page-sub">{{ dados.nome }} · {{ dados.tecnica or 'Técnica não definida' }}</p>
+  </div>
+  <div class="header-actions">
+    <a href="{{ url_for('ver_personagem', pid=pid) }}" class="btn btn-secondary">← Ficha</a>
+    <a href="{{ url_for('criar_tecnica', pid=pid) }}" class="btn btn-primary">+ Nova Habilidade</a>
+  </div>
+</div>
+
+{% if not tecnicas %}
+<div class="empty-state">
+  <p>Nenhuma habilidade de técnica criada ainda.</p>
+  <a href="{{ url_for('criar_tecnica', pid=pid) }}" class="btn btn-primary">Criar Primeira Habilidade</a>
+</div>
+{% else %}
+
+<div class="tec-grid">
+{% for tec in tecnicas %}
+{% set tid = loop.index0 %}
+<div class="tec-card nivel-{{ tec.nivel }}">
+  <div class="tec-header">
+    <div>
+      <span class="tec-badge nivel-badge">Nível {{ tec.nivel }}</span>
+      <span class="tec-badge tipo-badge">{{ tecnica_tipos.get(tec.tipo, tec.tipo) }}</span>
+      {% if tec.get('tem_tecnica_maxima') %}
+      <span class="tec-badge maxima-badge">⚡ Técnica Máxima</span>
+      {% endif %}
+    </div>
+    <h3 class="tec-nome">{{ tec.nome }}</h3>
+  </div>
+
+  <div class="tec-stats-row">
+    <div class="tec-stat">
+      <span class="ts-label">Conjuração</span>
+      <span class="ts-val">{{ tecnica_conjuracao.get(tec.conjuracao, tec.conjuracao) }}</span>
+    </div>
+    {% if tec.alcance %}
+    <div class="tec-stat">
+      <span class="ts-label">Alcance</span>
+      <span class="ts-val">{{ tec.alcance }}</span>
+    </div>
+    {% endif %}
+    {% if tec.area %}
+    <div class="tec-stat">
+      <span class="ts-label">Área</span>
+      <span class="ts-val">{{ tec.area }}</span>
+    </div>
+    {% endif %}
+    {% if tec.alvo %}
+    <div class="tec-stat">
+      <span class="ts-label">Alvo</span>
+      <span class="ts-val">{{ tec.alvo }}</span>
+    </div>
+    {% endif %}
+    {% if tec.duracao %}
+    <div class="tec-stat">
+      <span class="ts-label">Duração</span>
+      <span class="ts-val">{{ tec.duracao }}</span>
+    </div>
+    {% endif %}
+    {% if tec.custo_pe %}
+    <div class="tec-stat">
+      <span class="ts-label">Custo</span>
+      <span class="ts-val">{{ tec.custo_pe }} PE</span>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if tec.descricao %}
+  <div class="tec-desc">{{ tec.descricao }}</div>
+  {% endif %}
+
+  {% if tec.condicoes %}
+  <div class="tec-condicoes">
+    <span class="cond-label">Condições: </span>
+    {% for c in tec.condicoes %}
+    <span class="cond-tag forca-{{ c.forca }}">{{ c.nome }} ({{ c.forca }})</span>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if tec.liberacoes_maximas %}
+  <div class="tec-liberacoes">
+    <strong>Liberações Máximas:</strong>
+    {% for lib in tec.liberacoes_maximas %}
+    <div class="lib-item">{{ lib.descricao }} (Custo: {{ lib.custo_pe }} PE)</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="tec-actions">
+    <a href="{{ url_for('editar_tecnica', pid=pid, tid=tid) }}" class="btn btn-sm btn-secondary">✏ Editar</a>
+    <form method="POST" action="{{ url_for('deletar_tecnica', pid=pid, tid=tid) }}" style="display:inline"
+          onsubmit="return confirm('Deletar {{ tec.nome }}?')">
+      <button class="btn btn-sm btn-danger">🗑 Deletar</button>
+    </form>
+  </div>
+</div>
+{% endfor %}
+</div>
+{% endif %}
+
+<style>
+.tec-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:1.2rem;margin-top:1.5rem}
+.tec-card{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:1.2rem;display:flex;flex-direction:column;gap:.8rem}
+.tec-card.nivel-0{border-left:4px solid #6b7280}
+.tec-card.nivel-1{border-left:4px solid #3b82f6}
+.tec-card.nivel-2{border-left:4px solid #8b5cf6}
+.tec-card.nivel-3{border-left:4px solid #f59e0b}
+.tec-card.nivel-4{border-left:4px solid #ef4444}
+.tec-card.nivel-5{border-left:4px solid #dc2626}
+.tec-header{display:flex;flex-direction:column;gap:.4rem}
+.tec-nome{font-size:1.1rem;font-weight:700;color:var(--text);margin:0}
+.tec-badge{font-size:.72rem;padding:.18rem .5rem;border-radius:99px;display:inline-block;margin-right:.25rem}
+.nivel-badge{background:#1e1b4b;color:#a5b4fc}
+.tipo-badge{background:#0d2010;color:#86efac}
+.maxima-badge{background:#3b0d0d;color:#fca5a5}
+.tec-stats-row{display:flex;flex-wrap:wrap;gap:.5rem}
+.tec-stat{background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:.3rem .6rem;min-width:80px}
+.ts-label{display:block;font-size:.6rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px}
+.ts-val{font-size:.82rem;font-weight:600;color:var(--text)}
+.tec-desc{font-size:.88rem;color:var(--text-dim);line-height:1.5;border-left:2px solid var(--border);padding-left:.8rem}
+.tec-condicoes{font-size:.82rem}
+.cond-label{color:var(--text-muted);font-size:.75rem;margin-right:.3rem}
+.cond-tag{display:inline-block;padding:.15rem .45rem;border-radius:99px;font-size:.7rem;margin:.1rem}
+.cond-tag.forca-fraca{background:#0d2010;color:#86efac}
+.cond-tag.forca-media{background:#0d1a30;color:#93c5fd}
+.cond-tag.forca-forte{background:#2d0d0d;color:#fca5a5}
+.cond-tag.forca-extrema{background:#1a0830;color:#e879f9}
+.tec-liberacoes{font-size:.82rem;color:var(--text-dim)}
+.lib-item{padding:.25rem 0;border-bottom:1px solid var(--border)}
+.lib-item:last-child{border-bottom:none}
+.tec-actions{display:flex;gap:.5rem;margin-top:auto;padding-top:.4rem;border-top:1px solid var(--border)}
+.empty-state{text-align:center;padding:3rem;color:var(--text-muted)}
+.empty-state p{margin-bottom:1rem}
+</style>
+{% endblock %}

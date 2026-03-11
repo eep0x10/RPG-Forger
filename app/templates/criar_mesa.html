@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Criar Mesa – RPG Forge{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">🎭 Criar Mesa</h1>
+    <p class="page-sub">Você será o Mestre. Compartilhe o código com seus jogadores.</p>
+  </div>
+  <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">← Dashboard</a>
+</div>
+
+{% with msgs = get_flashed_messages(with_categories=true) %}
+  {% for cat, msg in msgs %}
+  <div class="alert alert-{{ 'danger' if cat == 'error' else cat }}">{{ msg }}</div>
+  {% endfor %}
+{% endwith %}
+
+<div class="form-section" style="max-width:480px">
+  <form method="POST" style="display:flex;flex-direction:column;gap:1.25rem">
+    <div class="form-group">
+      <label class="form-label">Nome da Mesa</label>
+      <input type="text" name="nome" class="form-input" required autofocus
+             placeholder="Ex: Aventuras em Shibuya">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Sistema de RPG</label>
+      <select name="sistema" class="form-input form-select">
+        <option value="jujutsu">Feiticeiros & Maldições (Jujutsu)</option>
+        <option value="old_dragon" disabled>Old Dragon 2e (Em breve)</option>
+      </select>
+    </div>
+    <div class="form-actions" style="border:none;padding:0;margin:0">
+      <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Cancelar</a>
+      <button type="submit" class="btn btn-primary">🎲 Criar Mesa</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

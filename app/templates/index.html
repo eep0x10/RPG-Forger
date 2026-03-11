@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Feiticeiros & Maldições – Meus Personagens{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <p class="page-sub" style="margin-bottom:.2rem"><a href="{{ url_for('dashboard') }}" style="color:var(--text-muted);text-decoration:none">Dashboard</a> ›</p>
+    <h1 class="page-title">⚡ Feiticeiros & Maldições</h1>
+    <p class="page-sub">Seus personagens · {{ personagens|length }} no total</p>
+  </div>
+  <a href="{{ url_for('criar') }}" class="btn btn-primary">+ Criar Personagem</a>
+</div>
+
+{% if personagens %}
+<div class="cards-grid">
+  {% for p in personagens %}
+  <div class="char-card-wrap">
+    <a href="{{ url_for('ver_personagem', pid=p.id) }}" class="char-card">
+      <div class="char-card-header">
+        <div class="char-avatar">{{ p.nome[0].upper() }}</div>
+        <div class="char-info">
+          <h3 class="char-nome">{{ p.nome }}</h3>
+          <span class="char-grau badge badge-grau">{{ p.grau }}</span>
+        </div>
+        <span class="char-nivel">Nv {{ p.nivel }}</span>
+      </div>
+      <div class="char-card-body">
+        <div class="char-detail">
+          <span class="detail-label">Especialização</span>
+          <span class="detail-value">{{ p.especializacao }}</span>
+        </div>
+        <div class="char-detail">
+          <span class="detail-label">Origem</span>
+          <span class="detail-value">{{ p.origem }}</span>
+        </div>
+      </div>
+      <div class="char-card-footer">
+        {% if p.mesa_id %}
+        <span class="char-mesa-badge">🎭 Em mesa</span>
+        {% else %}
+        <span class="text-muted">Ver ficha →</span>
+        {% endif %}
+      </div>
+    </a>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+  <div class="empty-icon">⚡</div>
+  <h2>Nenhum personagem ainda</h2>
+  <p>Crie seu primeiro feiticeiro para começar sua aventura</p>
+  <a href="{{ url_for('criar') }}" class="btn btn-primary btn-lg">Criar Personagem</a>
+</div>
+{% endif %}
+
+<style>
+.char-card-wrap{position:relative}
+.char-mesa-badge{font-size:.72rem;background:rgba(124,58,237,.15);color:var(--accent-light);border-radius:99px;padding:.1rem .45rem}
+</style>
+{% endblock %}

@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title %}Criar Personagem – Passo 5: Revisão{% endblock %}
+
+{% block content %}
+<div class="wizard-container wizard-container-wide">
+  <div class="wizard-progress">
+    <div class="step done"><div class="step-num">✓</div><div class="step-label">Identidade</div></div>
+    <div class="step-line done"></div>
+    <div class="step done"><div class="step-num">✓</div><div class="step-label">Origem</div></div>
+    <div class="step-line done"></div>
+    <div class="step done"><div class="step-num">✓</div><div class="step-label">Especialização</div></div>
+    <div class="step-line done"></div>
+    <div class="step done"><div class="step-num">✓</div><div class="step-label">Equipamento</div></div>
+    <div class="step-line done"></div>
+    <div class="step active"><div class="step-num">5</div><div class="step-label">Revisão</div></div>
+  </div>
+
+  <form action="{{ url_for('criar_salvar') }}" method="POST" class="wizard-form">
+    <div class="wizard-header">
+      <h2>Passo 5: Revisão Final</h2>
+      <p>Confirme os dados do seu personagem antes de salvar.</p>
+    </div>
+
+    <!-- Resumo da Ficha -->
+    <div class="resumo-ficha">
+      <div class="resumo-header">
+        <div class="resumo-avatar">{{ dados.nome[0].upper() if dados.nome else '?' }}</div>
+        <div class="resumo-info">
+          <h2 class="resumo-nome">{{ dados.nome or 'Sem Nome' }}</h2>
+          <div class="resumo-tags">
+            <span class="badge badge-grau">Nível 1 – {{ dados.calculado.grau }}</span>
+            <span class="badge badge-spec">{{ especializacoes.get(dados.especializacao, {}).get('nome', '?') }}</span>
+            <span class="badge badge-origem">{{ origens.get(dados.origem, {}).get('nome', '?') }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Atributos -->
+      <div class="resumo-section">
+        <h3 class="resumo-section-title">Atributos</h3>
+        <div class="atrib-final-grid">
+          {% set atrib_labels = {'forca': 'FOR', 'destreza': 'DES', 'constituicao': 'CON', 'inteligencia': 'INT', 'sabedoria': 'SAB', 'presenca': 'PRE'} %}
+          {% for attr, label in atrib_labels.items() %}
+          {% set val = dados.atributos.get(attr, 10) %}
+          {% set mod = ((val - 10) // 2) %}
+          <div class="atrib-final-item">
+            <div class="atrib-final-label">{{ label }}</div>
+            <div class="atrib-final-val">{{ val }}</div>
+            <div class="atrib-final-mod {{ 'pos' if mod >= 0 else 'neg' }}">{{ '+' if mod >= 0 else '' }}{{ mod }}</div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Valores derivados -->
+      <div class="resumo-section">
+        <h3 class="resumo-section-title">Valores Derivados</h3>
+        <div class="valores-grid">
+          <div class="valor-box primary">
+            <div class="valor-label">Pontos de Vida</div>
+            <div class="valor-num">{{ dados.calculado.pv_max }}</div>
+          </div>
+          <div class="valor-box primary">
+            <div class="valor-label">{{ dados.calculado.pe_label }}</div>
+            <div class="valor-num">{{ dados.calculado.pe_max }}</div>
+          </div>
+          <div class="valor-box">
+            <div class="valor-label">Defesa</div>
+            <div class="valor-num">{{ dados.calculado.defesa }}</div>
+          </div>
+          <div class="valor-box">
+            <div class="valor-label">Iniciativa</div>
+            <div class="valor-num">{{ '+' if dados.calculado.iniciativa >= 0 else '' }}{{ dados.calculado.iniciativa }}</div>
+          </div>
+          <div class="valor-box">
+            <div class="valor-label">Atenção</div>
+            <div class="valor-num">{{ dados.calculado.atencao }}</div>
+          </div>
+          <div class="valor-box">
+            <div class="valor-label">Deslocamento</div>
+            <div class="valor-num">{{ dados.calculado.deslocamento }}m</div>
+          </div>
+          <div class="valor-box">
+            <div class="valor-label">Integridade da Alma</div>
+            <div class="valor-num">{{ dados.calculado.integridade_alma }}</div>
+          </div>
+          <div class="valor-box">
+            <div class="valor-label">Bônus de Treinamento</div>
+            <div class="valor-num">+{{ dados.calculado.bonus_treinamento }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Equipamento -->
+      <div class="resumo-section">
+        <h3 class="resumo-section-title">Equipamento</h3>
+        <div class="equip-lista">
+          {% if dados.arma1 %}<div class="equip-item">⚔️ {{ dados.arma1 }}</div>{% endif %}
+          {% if dados.arma2 %}<div class="equip-item">⚔️ {{ dados.arma2 }}</div>{% endif %}
+          {% if dados.uniforme %}<div class="equip-item">🥋 {{ dados.uniforme }}</div>{% endif %}
+          {% if dados.kit %}<div class="equip-item">🎒 {{ dados.kit }}</div>{% endif %}
+        </div>
+      </div>
+
+      <!-- Habilidades Base -->
+      <div class="resumo-section">
+        <h3 class="resumo-section-title">Habilidades Base</h3>
+        {% set spec = especializacoes.get(dados.especializacao, {}) %}
+        <div class="habs-lista">
+          {% for hab in spec.get('habilidades_base', []) %}
+          <div class="hab-item">
+            <div class="hab-nome">⚡ {{ hab.nome }}</div>
+            <div class="hab-desc">{{ hab.desc }}</div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Campos adicionais antes de salvar -->
+    <div class="form-section">
+      <h3 class="section-title">✨ Detalhes Finais</h3>
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label">Feitiços (um por linha)</label>
+          <textarea name="feiticos" class="form-input form-textarea"
+                    placeholder="Lista seus feitiços aqui...&#10;Ex: Chave Inversa&#10;Divergente: Punho Azul"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Habilidades Extras / Notas</label>
+          <textarea name="notas" class="form-input form-textarea"
+                    placeholder="Notas adicionais, histórico, detalhes da técnica..."></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="wizard-actions">
+      <a href="javascript:history.back()" class="btn btn-ghost">← Voltar</a>
+      <button type="submit" class="btn btn-primary btn-lg btn-glow">
+        ⚡ Criar Personagem!
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}

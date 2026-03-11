@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block title %}Mesa {{ mesa.nome }} – RPG Forge{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">🎭 {{ mesa.nome }}</h1>
+    <p class="page-sub">
+      <code class="mesa-codigo-inline">{{ mesa.codigo }}</code>
+      · Mestre: <strong>{{ mestre.username }}</strong>
+      · Sistema: {{ mesa.sistema }}
+    </p>
+  </div>
+  <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+    <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">← Dashboard</a>
+    {% if eh_mestre %}
+    <form method="POST" action="{{ url_for('deletar_mesa', codigo=mesa.codigo) }}"
+          onsubmit="return confirm('Deletar a mesa {{ mesa.nome }}? Isso desvincula todos os personagens.')">
+      <button class="btn btn-danger btn-sm">🗑 Deletar Mesa</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Vincular personagem -->
+{% if not meu_char_na_mesa %}
+<div class="mesa-vincular-box">
+  <h3 class="mesa-vincular-title">🔗 Vincular seu Personagem</h3>
+  {% if meus_personagens %}
+  <form method="POST" class="mesa-vincular-form">
+    <select name="pid_vincular" class="form-input form-select" style="max-width:280px">
+      {% for p in meus_personagens %}
+      <option value="{{ p.id }}">{{ p.nome }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="btn btn-primary">Vincular</button>
+  </form>
+  <script>
+  document.querySelector('.mesa-vincular-form').addEventListener('submit', function(e){
+    e.preventDefault();
+    const pid = this.querySelector('[name=pid_vincular]').value;
+    fetch(`/mesa/{{ mesa.codigo }}/vincular/${pid}`, {method:'POST'}).then(()=>location.reload());
+  });
+  </script>
+  {% else %}
+  <p class="page-sub">Você não tem personagens para este sistema.
+    <a href="{{ url_for('criar') }}" class="btn btn-sm btn-primary" style="margin-left:.5rem">Criar Personagem</a>
+  </p>
+  {% endif %}
+</div>
+{% else %}
+<div class="mesa-meu-char-box">
+  <span>⚔️ Seu personagem na mesa: <strong>{{ meu_char_na_mesa.nome }}</strong></span>
+  <div style="display:flex;gap:.5rem">
+    <a href="{{ url_for('ver_personagem', pid=meu_char_na_mesa.id) }}" class="btn btn-sm btn-secondary">Ver Ficha</a>
+    <form method="POST" action="{{ url_for('desvincular_personagem', codigo=mesa.codigo, pid=meu_char_na_mesa.id) }}">
+      <button class="btn btn-sm btn-danger">Desvincular</button>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<!-- Lista de personagens na mesa -->
+<div style="margin-top:1.5rem">
+  <h2 class="dash-section-title">⚔️ Personagens na Mesa</h2>
+
+  {% if chars_lista %}
+  <div class="mesa-chars-grid">
+    {% for c in chars_lista %}
+    <div class="mesa-char-card {{ 'my-char' if c.eh_meu else '' }}">
+      <div class="mesa-char-header">
+        <div class="mesa-char-avatar">{{ c.nome[0].upper() }}</div>
+        <div class="mesa-char-info">
+          <div class="mesa-char-nome">{{ c.nome }}</div>
+          <div class="mesa-char-player">
+            <span class="mesa-player-tag">{{ c.username }}</span>
+            {% if c.eh_meu %}<span class="mesa-seu-tag">você</span>{% endif %}
+          </div>
+        </div>
+        <span class="mesa-char-nivel">Nv {{ c.nivel }}</span>
+      </div>
+
+      <div class="mesa-char-stats">
+        <div class="mesa-char-stat">
+          <span class="mcs-lbl">Grau</span>
+          <span class="mcs-val">{{ c.grau }}</span>
+        </div>
+        <div class="mesa-char-stat">
+          <span class="mcs-lbl">Especialização</span>
+          <span class="mcs-val">{{ c.especializacao }}</span>
+        </div>
+        <div class="mesa-char-stat pv">
+          <span class="mcs-lbl">PV máx</span>
+          <span class="mcs-val">{{ c.pv_max }}</span>
+        </div>
+        <div class="mesa-char-stat pe">
+          <span class="mcs-lbl">PE máx</span>
+          <span class="mcs-val">{{ c.pe_max }}</span>
+        </div>
+      </div>
+
+      <div class="mesa-char-actions">
+        <a href="{{ url_for('ver_personagem', pid=c.id) }}" class="btn btn-sm btn-secondary">📋 Ver Ficha</a>
+        {% if not c.eh_meu %}
+        <form method="POST" action="{{ url_for('clonar_personagem', codigo=mesa.codigo, pid=c.id) }}">
+          <button class="btn btn-sm btn-primary" title="Clonar para seus personagens">📋 Clonar</button>
+        </form>
+        {% endif %}
+        {% if c.eh_meu or eh_mestre %}
+        <form method="POST" action="{{ url_for('desvincular_personagem', codigo=mesa.codigo, pid=c.id) }}">
+          <button class="btn btn-sm btn-danger" title="Remover da mesa">✕</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state" style="padding:2rem">
+    <p>Nenhum personagem vinculado ainda. Compartilhe o código <strong>{{ mesa.codigo }}</strong> com seus jogadores!</p>
+  </div>
+  {% endif %}
+</div>
+
+<style>
+.mesa-codigo-inline{font-family:monospace;background:var(--bg-input);border:1px solid var(--border);border-radius:5px;padding:.1rem .4rem;font-size:.85rem;letter-spacing:.1em;color:var(--accent-light)}
+.mesa-vincular-box{background:var(--bg-card);border:1px solid var(--accent);border-radius:10px;padding:1rem 1.25rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap}
+.mesa-vincular-title{font-size:.9rem;font-weight:700;margin:0;color:var(--accent-light)}
+.mesa-vincular-form{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap}
+.mesa-meu-char-box{background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.3);border-radius:10px;padding:.85rem 1.25rem;display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;font-size:.9rem}
+.dash-section-title{font-size:.85rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin:0 0 1rem}
+.mesa-chars-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1rem}
+.mesa-char-card{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:1.1rem;display:flex;flex-direction:column;gap:.8rem;transition:border-color .15s}
+.mesa-char-card.my-char{border-color:rgba(124,58,237,.4)}
+.mesa-char-header{display:flex;align-items:center;gap:.75rem}
+.mesa-char-avatar{width:40px;height:40px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1rem;flex-shrink:0}
+.mesa-char-info{flex:1;min-width:0}
+.mesa-char-nome{font-size:.95rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mesa-char-player{font-size:.75rem;color:var(--text-muted);margin-top:.1rem}
+.mesa-player-tag{background:var(--bg-input);border:1px solid var(--border);border-radius:4px;padding:.05rem .3rem}
+.mesa-seu-tag{background:rgba(124,58,237,.2);color:var(--accent-light);border-radius:4px;padding:.05rem .3rem;margin-left:.3rem;font-size:.68rem;font-weight:600}
+.mesa-char-nivel{font-size:.85rem;font-weight:700;color:var(--accent-light);flex-shrink:0}
+.mesa-char-stats{display:flex;flex-wrap:wrap;gap:.4rem}
+.mesa-char-stat{background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:.25rem .5rem;min-width:70px}
+.mcs-lbl{display:block;font-size:.58rem;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted)}
+.mcs-val{font-size:.82rem;font-weight:600;color:var(--text)}
+.mesa-char-stat.pv .mcs-val{color:var(--pv-color)}
+.mesa-char-stat.pe .mcs-val{color:var(--pe-color)}
+.mesa-char-actions{display:flex;gap:.4rem;flex-wrap:wrap;padding-top:.4rem;border-top:1px solid var(--border)}
+</style>
+{% endblock %}

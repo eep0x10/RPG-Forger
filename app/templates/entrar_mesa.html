@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Entrar em Mesa – RPG Forge{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">🔑 Entrar em Mesa</h1>
+    <p class="page-sub">Insira o código de 6 caracteres fornecido pelo Mestre.</p>
+  </div>
+  <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">← Dashboard</a>
+</div>
+
+{% with msgs = get_flashed_messages(with_categories=true) %}
+  {% for cat, msg in msgs %}
+  <div class="alert alert-{{ 'danger' if cat == 'error' else cat }}">{{ msg }}</div>
+  {% endfor %}
+{% endwith %}
+
+<div class="form-section" style="max-width:360px">
+  <form method="POST" style="display:flex;flex-direction:column;gap:1.25rem">
+    <div class="form-group">
+      <label class="form-label">Código da Mesa</label>
+      <input type="text" name="codigo" class="form-input" required autofocus
+             placeholder="Ex: AB12CD" maxlength="6"
+             style="font-size:1.4rem;letter-spacing:.15em;text-align:center;text-transform:uppercase">
+    </div>
+    <div class="form-actions" style="border:none;padding:0;margin:0">
+      <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Cancelar</a>
+      <button type="submit" class="btn btn-primary">Entrar →</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}RPG Forge{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <nav class="navbar">
+    <a href="{{ url_for('dashboard') }}" class="nav-brand">
+      <span class="brand-icon">⚔️</span>
+      <span>RPG Forge</span>
+    </a>
+    <div class="nav-links">
+      <a href="{{ url_for('dashboard') }}" class="nav-link">Dashboard</a>
+      <a href="{{ url_for('sistema_jujutsu') }}" class="nav-link">Meus Personagens</a>
+      <div class="nav-user-menu">
+        <span class="nav-username">{{ session.get('usuario_nome', '') }}</span>
+        <div class="nav-user-dropdown">
+          <a href="{{ url_for('criar_mesa') }}" class="dropdown-item">+ Criar Mesa</a>
+          <a href="{{ url_for('entrar_mesa') }}" class="dropdown-item">Entrar em Mesa</a>
+          <div class="dropdown-divider"></div>
+          <a href="{{ url_for('logout') }}" class="dropdown-item dropdown-danger">Sair</a>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <main class="main-content">
+    {% with msgs = get_flashed_messages(with_categories=true) %}
+      {% for cat, msg in msgs %}
+      <div class="alert alert-{{ 'danger' if cat == 'error' else cat }}" style="margin-bottom:1rem">{{ msg }}</div>
+      {% endfor %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

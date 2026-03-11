@@ -1,0 +1,664 @@
+{% extends "base.html" %}
+{% block title %}{{ dados.nome }} – Ficha{% endblock %}
+
+{% block content %}
+<div class="ficha-container">
+
+  <!-- Header da ficha -->
+  <div class="ficha-header">
+    <div class="ficha-avatar-area">
+      <div class="ficha-avatar-big">{{ dados.nome[0].upper() if dados.nome else '?' }}</div>
+    </div>
+    <div class="ficha-title-area">
+      <h1 class="ficha-nome">{{ dados.nome }}</h1>
+      <p class="ficha-jogador">{{ dados.jogador or 'Sem jogador' }}</p>
+      <div class="ficha-tags">
+        <span class="badge badge-grau badge-lg">{{ dados.calculado.grau }}</span>
+        <span class="badge badge-spec badge-lg">{{ spec.get('nome', '?') }}</span>
+        <span class="badge badge-origem badge-lg">{{ origem.get('nome', '?') }}</span>
+        <span class="badge badge-nivel badge-lg">Nível {{ dados.nivel }}</span>
+      </div>
+    </div>
+    <div class="ficha-actions">
+      <a href="{{ url_for('editar_personagem', pid=pid) }}" class="btn btn-secondary">✏️ Editar</a>
+      <button onclick="abrirLevelUp()" class="btn btn-primary" id="btn-levelup"
+              {% if dados.nivel >= 20 %}disabled{% endif %}>
+        ⬆ Subir Nível
+      </button>
+      <form method="POST" action="{{ url_for('deletar_personagem', pid=pid) }}"
+            onsubmit="return confirm('Deletar este personagem permanentemente?')">
+        <button type="submit" class="btn btn-danger btn-sm">🗑️</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- XP Bar -->
+  <div class="xp-bar-section">
+    <div class="xp-info">
+      <span>XP: <strong id="xp-atual">{{ dados.xp or 0 }}</strong></span>
+      {% if dados.calculado.xp_proximo %}
+      <span>Próximo nível: <strong>{{ dados.calculado.xp_proximo }}</strong></span>
+      {% else %}
+      <span class="text-success">✓ Nível Máximo!</span>
+      {% endif %}
+    </div>
+    {% if dados.calculado.xp_proximo %}
+    <div class="xp-bar">
+      {% set xp_frac = [(dados.xp or 0) - dados.calculado.xp_atual_nivel, 0] | max %}
+      {% set xp_needed = dados.calculado.xp_proximo - dados.calculado.xp_atual_nivel %}
+      {% set pct = [(xp_frac / xp_needed * 100), 100] | min if xp_needed > 0 else 0 %}
+      <div class="xp-fill" style="width: {{ pct }}%"></div>
+    </div>
+    <div class="xp-controls">
+      <input type="number" id="xp-add" class="form-input small-input" placeholder="Adicionar XP" min="0">
+      <button onclick="adicionarXP()" class="btn btn-sm btn-secondary">+ XP</button>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Conteúdo principal -->
+  <div class="ficha-body">
+    <!-- Coluna esquerda -->
+    <div class="ficha-col-left">
+
+      <!-- Atributos -->
+      <div class="ficha-card">
+        <div class="ficha-card-title">⚔️ Atributos</div>
+        <div class="atrib-display-grid">
+          {% set atrib_map = [
+            ('forca', 'Força', dados.calculado.mod_forca),
+            ('destreza', 'Destreza', dados.calculado.mod_destreza),
+            ('constituicao', 'Constituição', dados.calculado.mod_constituicao),
+            ('inteligencia', 'Inteligência', dados.calculado.mod_inteligencia),
+            ('sabedoria', 'Sabedoria', dados.calculado.mod_sabedoria),
+            ('presenca', 'Presença', dados.calculado.mod_presenca),
+          ] %}
+          {% for attr, label, mod in atrib_map %}
+          <div class="atrib-display" id="atrib-{{ attr }}">
+            <div class="atrib-display-label">{{ label }}</div>
+            <div class="atrib-display-val">{{ dados.atributos.get(attr, 10) }}</div>
+            <div class="atrib-display-mod {{ 'pos' if mod >= 0 else 'neg' }}">
+              {{ '+' if mod >= 0 else '' }}{{ mod }}
+            </div>
+            {% if dados.pontos_atributo_disponivel and dados.pontos_atributo_disponivel > 0 %}
+            <button type="button" class="btn-atrib-up"
+                    onclick="distribuirAtributo('{{ attr }}')">+</button>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        {% if dados.pontos_atributo_disponivel and dados.pontos_atributo_disponivel > 0 %}
+        <div class="pontos-atrib-aviso">
+          ⚡ <strong>{{ dados.pontos_atributo_disponivel }}</strong> ponto(s) de atributo disponível(is)
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Valores Derivados -->
+      <div class="ficha-card">
+        <div class="ficha-card-title">📊 Valores de Combate</div>
+        <div class="valores-combat-grid">
+          <div class="valor-combat pv-box">
+            <div class="valor-combat-label">Pontos de Vida</div>
+            <div class="valor-combat-bar">
+              <div class="pv-bar-fill" id="pv-bar"
+                   style="width: {{ [(dados.pv_atual or dados.calculado.pv_max) / dados.calculado.pv_max * 100, 100] | min }}%"></div>
+            </div>
+            <div class="valor-combat-nums">
+              <span class="pv-atual clickable" onclick="editarPV()" id="pv-atual-display"
+                    title="Clique para editar">{{ dados.pv_atual or dados.calculado.pv_max }}</span>
+              <span class="pv-sep">/</span>
+              <span class="pv-max" id="pv-max-display">{{ dados.calculado.pv_max }}</span>
+            </div>
+            <div class="pv-quick">
+              <button onclick="alterarPV(-1)" class="btn-pv btn-pv-down">−1</button>
+              <button onclick="alterarPV(-5)" class="btn-pv btn-pv-down">−5</button>
+              <button onclick="alterarPV(1)" class="btn-pv btn-pv-up">+1</button>
+              <button onclick="alterarPV(5)" class="btn-pv btn-pv-up">+5</button>
+              <button onclick="curarTotal()" class="btn-pv btn-pv-full">✓ Curar</button>
+            </div>
+          </div>
+
+          <div class="valor-combat pe-box">
+            <div class="valor-combat-label">{{ dados.calculado.pe_label }}</div>
+            <div class="valor-combat-bar">
+              <div class="pe-bar-fill" id="pe-bar"
+                   style="width: {{ [(dados.pe_atual or dados.calculado.pe_max) / dados.calculado.pe_max * 100, 100] | min if dados.calculado.pe_max > 0 else 0 }}%"></div>
+            </div>
+            <div class="valor-combat-nums">
+              <span class="pe-atual clickable" onclick="editarPE()" id="pe-atual-display"
+                    title="Clique para editar">{{ dados.pe_atual or dados.calculado.pe_max }}</span>
+              <span class="pv-sep">/</span>
+              <span class="pe-max" id="pe-max-display">{{ dados.calculado.pe_max }}</span>
+            </div>
+            <div class="pv-quick">
+              <button onclick="alterarPE(-1)" class="btn-pv btn-pv-down">−1</button>
+              <button onclick="alterarPE(-2)" class="btn-pv btn-pv-down">−2</button>
+              <button onclick="alterarPE(1)" class="btn-pv btn-pv-up">+1</button>
+              <button onclick="alterarPE(2)" class="btn-pv btn-pv-up">+2</button>
+              <button onclick="restaurarPE()" class="btn-pv btn-pv-full">✓ Restaurar</button>
+            </div>
+          </div>
+
+          {% set stats = [
+            ('Defesa', dados.calculado.defesa, None),
+            ('Iniciativa', ('+' if dados.calculado.iniciativa >= 0 else '') ~ dados.calculado.iniciativa, None),
+            ('Atenção', dados.calculado.atencao, None),
+            ('Deslocamento', dados.calculado.deslocamento ~ 'm', None),
+            ('Integridade da Alma', dados.calculado.integridade_alma, None),
+            ('Bônus de Treinamento', '+' ~ dados.calculado.bonus_treinamento, None),
+          ] %}
+          {% for label, val, _ in stats %}
+          <div class="stat-box">
+            <div class="stat-label">{{ label }}</div>
+            <div class="stat-val">{{ val }}</div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Perícias -->
+      {% if dados.pericias_treinadas %}
+      <div class="ficha-card">
+        <div class="ficha-card-title">📚 Perícias Treinadas</div>
+        <div class="pericias-display">
+          {% for p in dados.pericias_treinadas %}
+          <span class="pericia-tag">{{ p }}</span>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Coluna direita -->
+    <div class="ficha-col-right">
+
+      <!-- Aspectos Pessoais -->
+      <div class="ficha-card">
+        <div class="ficha-card-title">🧠 Aspectos Pessoais</div>
+        <div class="aspectos-grid">
+          <div class="aspecto-item">
+            <div class="aspecto-label">Técnica</div>
+            <div class="aspecto-val">{{ dados.tecnica or '—' }}</div>
+          </div>
+          <div class="aspecto-item">
+            <div class="aspecto-label">Domínio Inato</div>
+            <div class="aspecto-val">{{ dados.dominio_inato or '—' }}</div>
+          </div>
+          <div class="aspecto-item">
+            <div class="aspecto-label">Traços</div>
+            <div class="aspecto-val">{{ dados.tracos or '—' }}</div>
+          </div>
+          <div class="aspecto-item">
+            <div class="aspecto-label">Ideais</div>
+            <div class="aspecto-val">{{ dados.ideais or '—' }}</div>
+          </div>
+          <div class="aspecto-item">
+            <div class="aspecto-label">Ligações</div>
+            <div class="aspecto-val">{{ dados.ligacoes or '—' }}</div>
+          </div>
+          <div class="aspecto-item">
+            <div class="aspecto-label">Complicações</div>
+            <div class="aspecto-val">{{ dados.complicacoes or '—' }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Habilidades -->
+      <div class="ficha-card">
+        <div class="ficha-card-title">⚡ Habilidades</div>
+        <div class="habs-ficha-lista">
+          {% for hab in spec.get('habilidades_base', []) %}
+          <div class="hab-ficha-item">
+            <div class="hab-ficha-nome">{{ hab.nome }}
+              <span class="hab-level-badge">Nível {{ hab.nivel }}</span>
+            </div>
+            <div class="hab-ficha-desc">{{ hab.desc }}</div>
+          </div>
+          {% endfor %}
+
+          {% for nivel_req, lista in spec.get('habilidades_nivel', {}).items() %}
+          {% if dados.nivel >= nivel_req | int %}
+          {% for hab in lista %}
+          <div class="hab-ficha-item desbloqueada">
+            <div class="hab-ficha-nome">{{ hab.split('–')[0] if '–' in hab else hab }}
+              <span class="hab-level-badge">Nível {{ nivel_req }}</span>
+            </div>
+            {% if '–' in hab %}
+            <div class="hab-ficha-desc">{{ hab.split('–', 1)[1] }}</div>
+            {% endif %}
+          </div>
+          {% endfor %}
+          {% endif %}
+          {% endfor %}
+        </div>
+
+        <!-- Próximas habilidades -->
+        {% set prox_habs = [] %}
+        {% for nivel_req, lista in spec.get('habilidades_nivel', {}).items() %}
+        {% if dados.nivel < nivel_req | int %}
+        {% set _ = prox_habs.append((nivel_req, lista)) %}
+        {% endif %}
+        {% endfor %}
+        {% if prox_habs %}
+        <div class="proximas-habs">
+          <div class="proximas-title">🔒 Próximas habilidades</div>
+          {% for nivel_req, lista in prox_habs[:3] %}
+          {% for hab in lista %}
+          <div class="hab-locked">
+            <span class="hab-nivel-lock">Nível {{ nivel_req }}</span>
+            <span>{{ hab.split('–')[0] if '–' in hab else hab }}</span>
+          </div>
+          {% endfor %}
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Feitiços -->
+      <div class="ficha-card">
+        <div class="ficha-card-title">🔮 Feitiços e Técnicas</div>
+        {% if dados.feiticos %}
+        <div class="feiticos-lista">
+          {% for f in dados.feiticos %}
+          {% if f.strip() %}
+          <div class="feitico-item">{{ f }}</div>
+          {% endif %}
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-muted">Nenhum feitiço registrado.</p>
+        {% endif %}
+      </div>
+
+      <!-- Equipamento -->
+      <div class="ficha-card">
+        <div class="ficha-card-title">🎒 Equipamento</div>
+        {% macro arma_card(nome) %}
+          {% set a = armas_dados.get(nome) or escudos_dados.get(nome) %}
+          {% if a %}
+          <div class="equip-arma-card">
+            <div class="equip-arma-nome">⚔️ {{ nome }}</div>
+            <div class="equip-arma-row">
+              {% if a.get('dano') %}
+              <div class="equip-arma-stat"><span class="equip-stat-lbl">Dano</span><span class="equip-stat-val equip-dano">{{ a.dano }}</span></div>
+              <div class="equip-arma-stat"><span class="equip-stat-lbl">Tipo</span><span class="equip-stat-val">{{ a.tipo_dano }}</span></div>
+              <div class="equip-arma-stat"><span class="equip-stat-lbl">Atributo</span><span class="equip-stat-val">{{ a.atributo }}</span></div>
+              <div class="equip-arma-stat"><span class="equip-stat-lbl">Crítico</span><span class="equip-stat-val">{{ a.critico }}+</span></div>
+              {% endif %}
+              {% if a.get('rd') %}
+              <div class="equip-arma-stat"><span class="equip-stat-lbl">RD</span><span class="equip-stat-val">{{ a.rd }}</span></div>
+              <div class="equip-arma-stat"><span class="equip-stat-lbl">Dano Escudo</span><span class="equip-stat-val">{{ a.dano_escudo }}</span></div>
+              {% endif %}
+            </div>
+            {% if a.get('alcance') %}<div class="equip-arma-alcance">📏 {{ a.alcance }}</div>{% endif %}
+            {% if a.get('propriedades') %}
+            <div class="equip-arma-props">{% for p in a.propriedades %}<span class="equip-prop">{{ p }}</span>{% endfor %}</div>
+            {% endif %}
+            {% if a.get('efeito_critico') %}<div class="equip-arma-critico">⚡ {{ a.efeito_critico }}</div>{% endif %}
+            {% if a.get('obs') %}<div class="equip-arma-obs">{{ a.obs }}</div>{% endif %}
+          </div>
+          {% else %}
+          <div class="equip-ficha-item">⚔️ {{ nome }}</div>
+          {% endif %}
+        {% endmacro %}
+        <div class="equip-ficha-lista">
+          {% if dados.arma1 %}{{ arma_card(dados.arma1) }}{% endif %}
+          {% if dados.arma2 %}{{ arma_card(dados.arma2) }}{% endif %}
+          {% if dados.uniforme %}<div class="equip-ficha-item">🥋 {{ dados.uniforme }}</div>{% endif %}
+          {% if dados.kit %}<div class="equip-ficha-item">🎒 {{ dados.kit }}</div>{% endif %}
+        </div>
+      </div>
+
+      <!-- Notas -->
+      {% if dados.notas %}
+      <div class="ficha-card">
+        <div class="ficha-card-title">📝 Notas</div>
+        <div class="notas-text">{{ dados.notas }}</div>
+      </div>
+      {% endif %}
+
+      <!-- Histórico de nível -->
+      {% if dados.historico_nivel %}
+      <div class="ficha-card">
+        <div class="ficha-card-title">📈 Histórico de Progressão</div>
+        <div class="historico-lista">
+          {% for h in dados.historico_nivel | reverse %}
+          <div class="historico-item">
+            <span class="historico-nivel">Nível {{ h.para }}</span>
+            <span class="historico-ganho">+{{ h.ganho_pv }} PV</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Invocações (apenas Controlador) -->
+  {% if dados.get('especializacao') == 'controlador' %}
+  {% set invs = dados.get('invocacoes', []) %}
+  <div class="ficha-card" style="margin-top:1.5rem">
+    <div class="ficha-card-title" style="display:flex;align-items:center;justify-content:space-between">
+      <span>🐉 Invocações
+        {% if invs %}<span class="badge" style="background:var(--accent);margin-left:0.5rem">{{ invs|length }}</span>{% endif %}
+      </span>
+      <a href="{{ url_for('listar_invocacoes', pid=pid) }}" class="btn btn-sm btn-secondary">Gerenciar</a>
+    </div>
+    {% if invs %}
+    <div class="invs-preview-grid">
+      {% for inv_data in invs[:4] %}
+      {% set grau_nome = {'4':'4° Grau','3':'3° Grau','2':'2° Grau','1':'1° Grau','especial':'Gr. Especial'} %}
+      {% set tipo_nome = {'shikigami':'Shikigami','marionete':'Marionete','maldicao_domada':'Maldição Domada'} %}
+      <div class="inv-preview-card">
+        <div class="inv-preview-nome">{{ inv_data.nome }}</div>
+        <div class="inv-preview-tags">
+          <span class="badge" style="font-size:0.65rem">{{ grau_nome.get(inv_data.grau, inv_data.grau) }}</span>
+          <span class="badge badge-spec" style="font-size:0.65rem">{{ tipo_nome.get(inv_data.tipo, inv_data.tipo) }}</span>
+        </div>
+        {% if inv_data.calculado is defined %}
+        <div class="inv-preview-stats">
+          PV {{ inv_data.get('pv_atual', inv_data.calculado.pv_max) }}/{{ inv_data.calculado.pv_max }}
+          · DEF {{ inv_data.calculado.defesa }}
+          · {{ inv_data.calculado.custo_pe_total }} PE
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+      {% if invs|length > 4 %}
+      <div class="inv-preview-card inv-preview-mais">
+        +{{ invs|length - 4 }} mais
+      </div>
+      {% endif %}
+    </div>
+    {% else %}
+    <p class="text-muted" style="font-size:0.9rem">
+      Nenhuma invocação criada.
+      <a href="{{ url_for('criar_invocacao', pid=pid) }}" style="color:var(--accent-light)">Criar primeira</a>
+    </p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- Habilidades de Técnica (Expansão) -->
+  {% if dados.get('especializacao') != 'restringido' %}
+  {% set tecnicas_list = dados.get('tecnicas', []) %}
+  <div class="ficha-card" style="margin-top:1.5rem">
+    <div class="ficha-card-title" style="display:flex;align-items:center;justify-content:space-between">
+      <span>⚡ Habilidades de Técnica
+        {% if tecnicas_list %}<span class="badge" style="background:var(--accent);margin-left:0.5rem">{{ tecnicas_list|length }}</span>{% endif %}
+      </span>
+      <a href="{{ url_for('listar_tecnicas', pid=pid) }}" class="btn btn-sm btn-secondary">Gerenciar</a>
+    </div>
+    {% if tecnicas_list %}
+    <div class="tecnicas-preview-grid">
+      {% for tec in tecnicas_list[:6] %}
+      <div class="tec-preview-card">
+        <div style="display:flex;gap:.3rem;align-items:center">
+          <span class="badge" style="font-size:.65rem;background:#1e1b4b">Nv{{ tec.nivel }}</span>
+          <span class="tec-preview-nome">{{ tec.nome }}</span>
+        </div>
+        <div style="font-size:.75rem;color:var(--muted)">
+          {{ tec.conjuracao|replace('_',' ')|title if tec.conjuracao else '' }}
+          {% if tec.custo_pe %} · {{ tec.custo_pe }} PE{% endif %}
+        </div>
+      </div>
+      {% endfor %}
+      {% if tecnicas_list|length > 6 %}
+      <div class="tec-preview-card" style="color:var(--muted);display:flex;align-items:center;justify-content:center">
+        +{{ tecnicas_list|length - 6 }} mais
+      </div>
+      {% endif %}
+    </div>
+    {% else %}
+    <p class="text-muted" style="font-size:0.9rem">
+      Nenhuma habilidade de técnica.
+      <a href="{{ url_for('criar_tecnica', pid=pid) }}" style="color:var(--accent-light)">Criar primeira</a>
+    </p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- Aptidões e Domínio -->
+  {% if dados.get('especializacao') != 'restringido' %}
+  {% set aptidoes_list = dados.get('aptidoes', []) %}
+  {% set dominio_dados = dados.get('dominio') %}
+  <div class="ficha-card" style="margin-top:1.5rem">
+    <div class="ficha-card-title" style="display:flex;align-items:center;justify-content:space-between">
+      <span>🌀 Aptidões & Domínio</span>
+      <div style="display:flex;gap:.4rem">
+        <a href="{{ url_for('gerenciar_aptidoes', pid=pid) }}" class="btn btn-sm btn-secondary">Aptidões</a>
+        <a href="{{ url_for('gerenciar_dominio', pid=pid) }}" class="btn btn-sm btn-secondary">Domínio</a>
+      </div>
+    </div>
+    {% if aptidoes_list %}
+    <div style="display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.8rem">
+      {% for apt_id in aptidoes_list %}
+      <span class="badge" style="font-size:.72rem;background:var(--surface-2);color:var(--text)">{{ apt_id|replace('_',' ')|title }}</span>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% if dominio_dados %}
+    <div class="dominio-preview">
+      <span style="font-size:.8rem;color:var(--accent)">🌐 {{ dominio_dados.nome or 'Expansão de Domínio' }}</span>
+      {% if dominio_dados.tipo %}
+      <span class="badge" style="font-size:.65rem;margin-left:.4rem">{{ dominio_dados.tipo|replace('_',' ')|title }}</span>
+      {% endif %}
+    </div>
+    {% elif not aptidoes_list %}
+    <p class="text-muted" style="font-size:.9rem">
+      Sem aptidões.
+      <a href="{{ url_for('gerenciar_aptidoes', pid=pid) }}" style="color:var(--accent-light)">Adicionar</a>
+    </p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+</div>
+
+<!-- Modal de Subir de Nível -->
+<div class="modal-overlay" id="modal-levelup" style="display:none">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>⬆ Subir para o Nível {{ dados.nivel + 1 }}</h3>
+      <button onclick="fecharModal()" class="modal-close">×</button>
+    </div>
+    <div class="modal-body">
+      <p>Você está prestes a subir do <strong>nível {{ dados.nivel }}</strong> para o <strong>nível {{ dados.nivel + 1 }}</strong>.</p>
+
+      <div class="levelup-opcoes">
+        <h4>Como aumentar os Pontos de Vida?</h4>
+        {% set spec = spec %}
+        <div class="pv-metodo-grid">
+          <label class="pv-metodo-option">
+            <input type="radio" name="pv_metodo" value="fixo" checked>
+            <div class="pv-metodo-card">
+              <div class="pv-metodo-nome">Valor Fixo</div>
+              <div class="pv-metodo-val">+{{ spec.pv_fixo_nivel }} + mod CON</div>
+            </div>
+          </label>
+          <label class="pv-metodo-option">
+            <input type="radio" name="pv_metodo" value="rolar">
+            <div class="pv-metodo-card">
+              <div class="pv-metodo-nome">Rolar</div>
+              <div class="pv-metodo-val">1d{{ spec.pv_dado }} + mod CON</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <div id="levelup-resultado" style="display:none" class="levelup-resultado">
+        <!-- Resultado aparece aqui -->
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button onclick="fecharModal()" class="btn btn-ghost">Cancelar</button>
+      <button onclick="confirmarLevelUp()" class="btn btn-primary btn-glow">✨ Confirmar!</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast de notificação -->
+<div class="toast" id="toast"></div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const PID = {{ pid }};
+let pvAtual = {{ dados.pv_atual or dados.calculado.pv_max }};
+let pvMax = {{ dados.calculado.pv_max }};
+let peAtual = {{ dados.pe_atual or dados.calculado.pe_max }};
+let peMax = {{ dados.calculado.pe_max }};
+let xpAtual = {{ dados.xp or 0 }};
+
+function showToast(msg, tipo = 'success') {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.className = `toast toast-${tipo} show`;
+  setTimeout(() => toast.classList.remove('show'), 3500);
+}
+
+function atualizarBarras() {
+  const pvPct = pvMax > 0 ? Math.min(pvAtual / pvMax * 100, 100) : 0;
+  document.getElementById('pv-bar').style.width = pvPct + '%';
+  document.getElementById('pv-bar').style.background =
+    pvPct > 50 ? 'var(--pv-color)' : pvPct > 25 ? '#f59e0b' : '#ef4444';
+  document.getElementById('pv-atual-display').textContent = pvAtual;
+
+  const pePct = peMax > 0 ? Math.min(peAtual / peMax * 100, 100) : 0;
+  document.getElementById('pe-bar').style.width = pePct + '%';
+  document.getElementById('pe-atual-display').textContent = peAtual;
+}
+
+async function salvarPVPE() {
+  await fetch(`/personagem/${PID}/atualizar_pv`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({pv_atual: pvAtual, pe_atual: peAtual})
+  });
+  atualizarBarras();
+}
+
+function alterarPV(delta) {
+  pvAtual = Math.max(0, Math.min(pvAtual + delta, pvMax));
+  salvarPVPE();
+}
+
+function alterarPE(delta) {
+  peAtual = Math.max(0, Math.min(peAtual + delta, peMax));
+  salvarPVPE();
+}
+
+function curarTotal() {
+  pvAtual = pvMax;
+  salvarPVPE();
+  showToast('PV restaurado ao máximo!');
+}
+
+function restaurarPE() {
+  peAtual = peMax;
+  salvarPVPE();
+  showToast('PE restaurado!');
+}
+
+function editarPV() {
+  const novo = prompt('Novo valor de PV (0–' + pvMax + '):', pvAtual);
+  if (novo !== null && !isNaN(novo)) {
+    pvAtual = Math.max(0, Math.min(parseInt(novo), pvMax));
+    salvarPVPE();
+  }
+}
+
+function editarPE() {
+  const novo = prompt('Novo valor de PE (0–' + peMax + '):', peAtual);
+  if (novo !== null && !isNaN(novo)) {
+    peAtual = Math.max(0, Math.min(parseInt(novo), peMax));
+    salvarPVPE();
+  }
+}
+
+async function adicionarXP() {
+  const add = parseInt(document.getElementById('xp-add').value) || 0;
+  if (add <= 0) return;
+  xpAtual += add;
+  document.getElementById('xp-atual').textContent = xpAtual;
+  document.getElementById('xp-add').value = '';
+  await fetch(`/personagem/${PID}/atualizar_pv`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({xp: xpAtual})
+  });
+  showToast(`+${add} XP adicionado!`);
+}
+
+function abrirLevelUp() {
+  document.getElementById('modal-levelup').style.display = 'flex';
+  document.getElementById('levelup-resultado').style.display = 'none';
+}
+
+function fecharModal() {
+  document.getElementById('modal-levelup').style.display = 'none';
+}
+
+async function confirmarLevelUp() {
+  const metodo = document.querySelector('input[name="pv_metodo"]:checked').value;
+  const resp = await fetch(`/personagem/${PID}/subir_nivel`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({rolar_pv: metodo === 'rolar'})
+  });
+  const data = await resp.json();
+
+  if (data.erro) {
+    showToast(data.erro, 'error');
+    return;
+  }
+
+  pvMax = data.pv_max;
+  peMax = data.pe_max;
+  pvAtual = Math.min(pvAtual + data.ganho_pv, pvMax);
+  peAtual = peMax;
+  atualizarBarras();
+
+  const res = document.getElementById('levelup-resultado');
+  res.style.display = 'block';
+  res.innerHTML = `
+    <div class="levelup-success">
+      <div class="levelup-nível">🎉 Nível ${data.nivel}!</div>
+      <div class="levelup-grau">${data.grau}</div>
+      <div class="levelup-ganhos">
+        <div>+${data.ganho_pv} PV (máx: ${data.pv_max})</div>
+        <div>PE restaurado: ${data.pe_max}</div>
+        <div>Bônus de Treinamento: +${data.bonus_treinamento}</div>
+        ${data.pontos_atributo_disponivel > 0 ? `<div>🎯 ${data.pontos_atributo_disponivel} pontos de atributo disponíveis!</div>` : ''}
+      </div>
+    </div>`;
+
+  showToast(data.mensagem);
+  setTimeout(() => { fecharModal(); location.reload(); }, 2500);
+}
+
+async function distribuirAtributo(attr) {
+  const resp = await fetch(`/personagem/${PID}/distribuir_atributo`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({atributo: attr})
+  });
+  const data = await resp.json();
+  if (data.sucesso) {
+    showToast(`${attr} aumentado para ${data.novo_valor} (${data.modificador >= 0 ? '+' : ''}${data.modificador})!`);
+    setTimeout(() => location.reload(), 1000);
+  } else {
+    showToast(data.erro, 'error');
+  }
+}
+
+// Fechar modal ao clicar fora
+document.getElementById('modal-levelup').addEventListener('click', function(e) {
+  if (e.target === this) fecharModal();
+});
+
+atualizarBarras();
+</script>
+{% endblock %}

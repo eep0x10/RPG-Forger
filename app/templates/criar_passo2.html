@@ -1,0 +1,317 @@
+{% extends "base.html" %}
+{% block title %}Criar Personagem – Passo 2: Origem{% endblock %}
+
+{% block content %}
+<div class="wizard-container">
+  <div class="wizard-progress">
+    <div class="step done"><div class="step-num">✓</div><div class="step-label">Identidade</div></div>
+    <div class="step-line done"></div>
+    <div class="step active"><div class="step-num">2</div><div class="step-label">Origem</div></div>
+    <div class="step-line"></div>
+    <div class="step"><div class="step-num">3</div><div class="step-label">Especialização</div></div>
+    <div class="step-line"></div>
+    <div class="step"><div class="step-num">4</div><div class="step-label">Equipamento</div></div>
+    <div class="step-line"></div>
+    <div class="step"><div class="step-num">5</div><div class="step-label">Revisão</div></div>
+  </div>
+
+  <form action="{{ url_for('criar_passo3') }}" method="POST" class="wizard-form">
+    <div class="wizard-header">
+      <h2>Passo 2: Origem</h2>
+      <p>A origem define de onde vem o seu poder e molda suas capacidades únicas.</p>
+    </div>
+
+    <!-- Atributos atuais (resumo) -->
+    <div class="form-section">
+      <h3 class="section-title">📊 Atributos Base</h3>
+      <div class="atrib-resumo-grid">
+        {% set atrib_labels = {'forca': 'FOR', 'destreza': 'DES', 'constituicao': 'CON', 'inteligencia': 'INT', 'sabedoria': 'SAB', 'presenca': 'PRE'} %}
+        {% for attr, label in atrib_labels.items() %}
+        <div class="atrib-resumo">
+          <span class="atrib-resumo-label">{{ label }}</span>
+          <span class="atrib-resumo-valor" id="base-{{ attr }}">{{ dados.atributos.get(attr, 10) }}</span>
+          <span class="atrib-resumo-bonus" id="bonus-{{ attr }}" style="color:var(--accent)">+0</span>
+          <span class="atrib-resumo-total text-glow" id="total-{{ attr }}">{{ dados.atributos.get(attr, 10) }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Escolha de Origem -->
+    <div class="form-section">
+      <h3 class="section-title">🌟 Escolha sua Origem</h3>
+      <input type="hidden" name="origem" id="origem-input" value="inato">
+
+      <div class="origem-grid">
+        {% for key, origem in origens.items() %}
+        <div class="origem-card {% if key == 'inato' %}selected{% endif %}"
+             data-key="{{ key }}"
+             onclick="selecionarOrigem('{{ key }}', this)">
+          <div class="origem-header">
+            <h4 class="origem-nome">{{ origem.nome }}</h4>
+            {% if 'herdado' in key %}
+            <span class="badge badge-cla">Clã</span>
+            {% elif key in ['restringido', 'feto_amaldicado', 'corpo_amaldicado'] %}
+            <span class="badge badge-raro">Raro</span>
+            {% endif %}
+          </div>
+          <p class="origem-desc">{{ origem.descricao }}</p>
+          <div class="origem-bonus">{{ origem.bonus_atributo }}</div>
+          {% if origem.exemplos %}
+          <div class="origem-exemplos">
+            <span class="text-muted">Ex: {{ origem.exemplos }}</span>
+          </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Detalhes da Origem Selecionada -->
+    <div class="form-section" id="origem-detalhes">
+      <!-- Preenchido via JS -->
+    </div>
+
+    <!-- Clã Personalizado: campos extras (visível só quando herdado_personalizado) -->
+    <div class="form-section" id="clan-personalizado-section" style="display:none">
+      <h3 class="section-title">🏰 Defina seu Clã</h3>
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label">Nome do Clã <span class="required">*</span></label>
+          <input type="text" name="clan_nome" id="clan_nome" class="form-input"
+                 placeholder="Ex: Clã Nakamura" maxlength="60">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Nome da Habilidade do Clã</label>
+          <input type="text" name="clan_habilidade_nome" class="form-input"
+                 placeholder="Ex: Herança de Sangue" maxlength="60">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Descrição da Habilidade do Clã</label>
+        <textarea name="clan_habilidade_desc" class="form-input" rows="3"
+                  placeholder="Descreva o efeito mecânico da habilidade especial do seu clã..."></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Treinamentos do Clã (escolha 2 perícias)</label>
+        <div class="pericias-check-grid" id="clan-pericias-grid">
+          {% set all_pericias = ['Acrobacia','Atletismo','Atuação','Condução','Diplomacia','Enganação','Feitiçaria','Furtividade','História','Intuição','Intimidação','Investigação','Medicina','Natureza','Ocultismo','Percepção','Persuasão','Prestidigitação','Religião','Sobrevivência','Tecnologia'] %}
+          {% for p in all_pericias %}
+          <label class="check-item">
+            <input type="checkbox" name="clan_pericias" value="{{ p }}" class="clan-pericia-check">
+            <span>{{ p }}</span>
+          </label>
+          {% endfor %}
+        </div>
+        <div class="text-muted" style="margin-top:0.5rem" id="clan-pericias-info">Selecione exatamente 2 perícias.</div>
+      </div>
+    </div>
+
+    <!-- Bônus de Atributos da Origem -->
+    <div class="form-section" id="bonus-atrib-section">
+      <h3 class="section-title">💫 Bônus de Atributos da Origem</h3>
+      <p id="bonus-instrucoes" class="text-muted">Selecione uma origem para ver como distribuir os bônus.</p>
+      <div class="bonus-grid" id="bonus-grid" style="display:none">
+        {% set atrib_nomes = {'forca': 'Força', 'destreza': 'Destreza', 'constituicao': 'Constituição', 'inteligencia': 'Inteligência', 'sabedoria': 'Sabedoria', 'presenca': 'Presença'} %}
+        {% for attr, nome in atrib_nomes.items() %}
+        <div class="bonus-atrib-item">
+          <label class="form-label">{{ nome }}</label>
+          <div class="bonus-controles">
+            <button type="button" class="btn-round btn-small" onclick="alterarBonus('{{ attr }}', -1)">−</button>
+            <input type="number" name="bonus_{{ attr }}" id="bonus-inp-{{ attr }}"
+                   class="bonus-input" value="0" min="0" max="3" readonly>
+            <button type="button" class="btn-round btn-small" onclick="alterarBonus('{{ attr }}', 1)">+</button>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      <div id="bonus-pontos-info" class="bonus-info" style="display:none">
+        Pontos disponíveis: <strong id="bonus-pontos">0</strong>
+      </div>
+    </div>
+
+    <div class="wizard-actions">
+      <a href="{{ url_for('criar') }}" class="btn btn-ghost">← Voltar</a>
+      <button type="submit" class="btn btn-primary btn-lg">Próximo: Especialização →</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const ORIGENS_DATA = {{ origens | tojson }};
+const BASE_ATTRS = {{ dados.atributos | tojson }};
+const ATRIBUTOS = ['forca', 'destreza', 'constituicao', 'inteligencia', 'sabedoria', 'presenca'];
+
+let origemAtual = 'inato';
+let bonusDistrib = {};
+let pontosTotais = 3;
+let pontosDisponiveis = 3;
+
+// Configs especiais de origem
+const ORIGEM_BONUS_CONFIG = {
+  'inato': {tipo: 'livre', pontos: [2, 1]},
+  'herdado_gojo': {tipo: 'fixo', fixos: {inteligencia: [2,0], sabedoria: [0,2]}, outro: 1},
+  'herdado_inumaki': {tipo: 'fixo', fixos: {inteligencia: [2,0], presenca: [0,2]}, outro: 1},
+  'herdado_kamo': {tipo: 'fixo', fixos: {constituicao: [2,0], sabedoria: [0,2]}, outro: 1},
+  'herdado_zenin': {tipo: 'livre', pontos: [2, 1]},
+  'herdado_personalizado': {tipo: 'livre', pontos: [2, 1]},
+  'derivado': {tipo: 'livre', pontos: [2, 1]},
+  'restringido': {tipo: 'especial_restringido'},
+  'feto_amaldicado': {tipo: 'livre', pontos: [2, 1]},
+  'sem_tecnica': {tipo: 'livre_4', pontos: 4, max_por_attr: 3},
+  'corpo_amaldicado': {tipo: 'livre_simples', pontos: 2},
+};
+
+function selecionarOrigem(key, el) {
+  document.querySelectorAll('.origem-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  origemAtual = key;
+  document.getElementById('origem-input').value = key;
+
+  // Mostrar/ocultar secão de clã personalizado
+  const clanSection = document.getElementById('clan-personalizado-section');
+  clanSection.style.display = key === 'herdado_personalizado' ? 'block' : 'none';
+
+  carregarDetalhes(key);
+  configurarBonus(key);
+}
+
+async function carregarDetalhes(key) {
+  const resp = await fetch(`/api/info_origem/${key}`);
+  const data = await resp.json();
+
+  let html = `<h3 class="section-title">📜 ${data.nome}</h3>
+    <div class="origem-full-desc">${data.descricao}</div>
+    <div class="carac-lista">`;
+
+  for (const c of data.caracteristicas) {
+    html += `<div class="carac-item">
+      <div class="carac-nome">⚡ ${c.nome}</div>
+      <div class="carac-desc">${c.desc}</div>
+    </div>`;
+  }
+  html += '</div>';
+  document.getElementById('origem-detalhes').innerHTML = html;
+}
+
+function configurarBonus(key) {
+  const config = ORIGEM_BONUS_CONFIG[key] || {tipo: 'livre', pontos: [2, 1]};
+  bonusDistrib = {};
+  ATRIBUTOS.forEach(a => {
+    bonusDistrib[a] = 0;
+    const inp = document.getElementById(`bonus-inp-${a}`);
+    inp.value = 0;
+    inp.readOnly = true;
+    inp.min = 0;
+    inp.max = 3;
+  });
+  atualizarTotais();
+
+  document.getElementById('bonus-grid').style.display = 'grid';
+  document.getElementById('bonus-pontos-info').style.display = 'block';
+
+  if (config.tipo === 'especial_restringido') {
+    // FOR, DES, CON +1 automaticamente + 2 pontos físicos
+    ['forca', 'destreza', 'constituicao'].forEach(a => {
+      bonusDistrib[a] = 1;
+      document.getElementById(`bonus-inp-${a}`).value = 1;
+    });
+    pontosDisponiveis = 2;
+    pontosTotais = 2;
+    document.getElementById('bonus-instrucoes').textContent = 'Força, Destreza e Constituição já recebem +1. Distribua mais 2 pontos entre Força, Destreza ou Constituição.';
+    // Habilitar apenas físicos
+    ATRIBUTOS.forEach(a => {
+      const inp = document.getElementById(`bonus-inp-${a}`);
+      inp.readOnly = !['forca', 'destreza', 'constituicao'].includes(a);
+    });
+  } else if (config.tipo === 'livre') {
+    pontosDisponiveis = config.pontos.reduce((a, b) => a + b, 0);
+    pontosTotais = pontosDisponiveis;
+    document.getElementById('bonus-instrucoes').textContent = 'Distribua os pontos: um atributo recebe +2, outro recebe +1.';
+    ATRIBUTOS.forEach(a => document.getElementById(`bonus-inp-${a}`).readOnly = false);
+  } else if (config.tipo === 'livre_4') {
+    pontosDisponiveis = 4;
+    pontosTotais = 4;
+    document.getElementById('bonus-instrucoes').textContent = 'Distribua 4 pontos entre os atributos (máximo 3 no mesmo atributo).';
+    ATRIBUTOS.forEach(a => {
+      const inp = document.getElementById(`bonus-inp-${a}`);
+      inp.readOnly = false;
+      inp.max = 3;
+    });
+  } else if (config.tipo === 'livre_simples') {
+    pontosDisponiveis = 2;
+    pontosTotais = 2;
+    document.getElementById('bonus-instrucoes').textContent = 'Distribua 2 pontos entre os atributos.';
+    ATRIBUTOS.forEach(a => document.getElementById(`bonus-inp-${a}`).readOnly = false);
+  } else if (config.tipo === 'fixo') {
+    pontosDisponiveis = 0;
+    document.getElementById('bonus-instrucoes').textContent = 'Os bônus deste clã são pré-definidos. Escolha uma opção abaixo.';
+    // Simplificado: usar Zenin como livre
+  }
+
+  document.getElementById('bonus-pontos').textContent = pontosDisponiveis;
+  atualizarTotais();
+}
+
+function alterarBonus(attr, delta) {
+  const config = ORIGEM_BONUS_CONFIG[origemAtual] || {tipo: 'livre', pontos: [2, 1]};
+  const inp = document.getElementById(`bonus-inp-${attr}`);
+  if (inp.readOnly) return;
+
+  const atual = bonusDistrib[attr] || 0;
+  const novoVal = atual + delta;
+  const maxVal = parseInt(inp.max) || 3;
+
+  if (novoVal < 0) return;
+  if (novoVal > maxVal) return;
+
+  // Verificar pontos disponíveis
+  if (delta > 0 && pontosDisponiveis <= 0) return;
+
+  // Verificar limitação especial (inato: max 2 em um, max 1 em outro)
+  if ((origemAtual === 'inato' || origemAtual === 'derivado' || origemAtual === 'feto_amaldicado' || origemAtual === 'herdado_zenin') && delta > 0) {
+    const totalAtual = Object.values(bonusDistrib).reduce((a, b) => a + b, 0);
+    // Max 2 em um atributo
+    if (novoVal > 2) return;
+    // Apenas 2 atributos podem ter bônus
+    const comBonus = Object.entries(bonusDistrib).filter(([k, v]) => v > 0).length;
+    if (atual === 0 && comBonus >= 2) return;
+  }
+
+  bonusDistrib[attr] = novoVal;
+  inp.value = novoVal;
+  pontosDisponiveis -= delta;
+  document.getElementById('bonus-pontos').textContent = pontosDisponiveis;
+  atualizarTotais();
+}
+
+function atualizarTotais() {
+  ATRIBUTOS.forEach(attr => {
+    const base = BASE_ATTRS[attr] || 10;
+    const bonus = bonusDistrib[attr] || 0;
+    const total = base + bonus;
+    document.getElementById(`bonus-${attr}`).textContent = bonus > 0 ? `+${bonus}` : (bonus < 0 ? bonus : '+0');
+    document.getElementById(`total-${attr}`).textContent = total;
+  });
+}
+
+// Limitar seleção de perícias do clã a 2
+document.querySelectorAll('.clan-pericia-check').forEach(cb => {
+  cb.addEventListener('change', function() {
+    const checked = document.querySelectorAll('.clan-pericia-check:checked');
+    const info = document.getElementById('clan-pericias-info');
+    if (checked.length > 2) {
+      this.checked = false;
+    }
+    const n = document.querySelectorAll('.clan-pericia-check:checked').length;
+    info.textContent = n >= 2 ? `✓ ${n} perícias selecionadas.` : `Selecione exatamente 2 perícias. (${n}/2)`;
+  });
+});
+
+// Inicializar com inato
+carregarDetalhes('inato');
+configurarBonus('inato');
+</script>
+{% endblock %}

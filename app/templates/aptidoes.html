@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}Aptidões – {{ dados.nome }}{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">🌀 Aptidões Amaldiçoadas</h1>
+    <p class="page-sub">{{ dados.nome }} · Nível {{ dados.nivel }}</p>
+  </div>
+  <a href="{{ url_for('ver_personagem', pid=pid) }}" class="btn btn-secondary">← Ficha</a>
+</div>
+
+<form method="POST">
+<div class="apt-layout">
+
+  <!-- Aptidões de Domínio -->
+  {% if aptidoes_dominio %}
+  <div class="apt-section">
+    <h2 class="apt-group-title">🏛 Aptidões de Domínio</h2>
+    <p class="apt-group-desc">Permitem criar e aprimorar Expansões de Domínio. Cada nível requer o anterior.</p>
+    <div class="apt-grid">
+      {% for apt in aptidoes_dominio %}
+      <label class="apt-card {{ 'selecionada' if apt.tem else '' }} {{ 'bloqueada' if not apt.pode else '' }}">
+        <div class="apt-card-inner">
+          <div class="apt-top">
+            <input type="checkbox" name="aptidoes" value="{{ apt.id }}"
+                   {{ 'checked' if apt.tem else '' }}
+                   {{ 'disabled' if not apt.pode else '' }}>
+            <span class="apt-req-nivel">Nível {{ apt.nivel_req }}+</span>
+          </div>
+          <h4 class="apt-nome">{{ apt.nome }}</h4>
+          <p class="apt-desc">{{ apt.descricao }}</p>
+          {% if apt.req %}
+          <div class="apt-req-tag">Requer:
+            {% for r in apt.req %}<span class="req-chip">{{ r }}</span>{% endfor %}
+          </div>
+          {% endif %}
+          {% if not apt.pode %}
+          <div class="apt-lock-msg">
+            {% if nivel < apt.nivel_req %}🔒 Requer nível {{ apt.nivel_req }}
+            {% else %}🔒 Requer pré-requisito{% endif %}
+          </div>
+          {% endif %}
+        </div>
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Aptidões Adicionais -->
+  <div class="apt-section">
+    <h2 class="apt-group-title">✨ Aptidões Adicionais</h2>
+    <p class="apt-group-desc">Expandem capacidades específicas. Algumas possuem pré-requisitos.</p>
+    <div class="apt-grid">
+      {% for apt in aptidoes_adicionais %}
+      <label class="apt-card {{ 'selecionada' if apt.tem else '' }} {{ 'bloqueada' if not apt.pode else '' }}">
+        <div class="apt-card-inner">
+          <div class="apt-top">
+            <input type="checkbox" name="aptidoes" value="{{ apt.id }}"
+                   {{ 'checked' if apt.tem else '' }}
+                   {{ 'disabled' if not apt.pode else '' }}>
+            <span class="apt-req-nivel">Nível {{ apt.nivel_req }}+</span>
+          </div>
+          <h4 class="apt-nome">{{ apt.nome }}</h4>
+          <p class="apt-desc">{{ apt.descricao }}</p>
+          {% if apt.req %}
+          <div class="apt-req-tag">Requer:
+            {% for r in apt.req %}<span class="req-chip">{{ r }}</span>{% endfor %}
+          </div>
+          {% endif %}
+          {% if not apt.pode %}
+          <div class="apt-lock-msg">
+            {% if nivel < apt.nivel_req %}🔒 Nível {{ apt.nivel_req }} necessário
+            {% else %}🔒 Requer pré-requisitos{% endif %}
+          </div>
+          {% endif %}
+        </div>
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+
+</div>
+
+<div class="form-actions">
+  <a href="{{ url_for('ver_personagem', pid=pid) }}" class="btn btn-secondary">Cancelar</a>
+  <button type="submit" class="btn btn-primary">💾 Salvar Aptidões</button>
+</div>
+</form>
+
+<style>
+.apt-layout{display:flex;flex-direction:column;gap:2rem;margin-top:1rem}
+.apt-section{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:1.25rem}
+.apt-group-title{font-size:1rem;font-weight:700;margin-bottom:.25rem;color:var(--accent);text-transform:uppercase;letter-spacing:.5px}
+.apt-group-desc{font-size:.82rem;color:var(--text-muted);margin-bottom:1rem;padding-bottom:.75rem;border-bottom:1px solid var(--border)}
+.apt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:.75rem}
+.apt-card{cursor:pointer;display:block}
+.apt-card-inner{background:var(--bg-input);border:1.5px solid var(--border);border-radius:10px;padding:.9rem;transition:border-color .15s,background .15s;height:100%;box-sizing:border-box}
+.apt-card.selecionada .apt-card-inner{border-color:var(--accent);background:rgba(124,58,237,.1)}
+.apt-card.bloqueada{cursor:not-allowed}
+.apt-card.bloqueada .apt-card-inner{opacity:.45}
+.apt-card:not(.bloqueada):hover .apt-card-inner{border-color:var(--accent-light)}
+.apt-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:.45rem}
+.apt-top input{width:16px;height:16px;accent-color:var(--accent)}
+.apt-req-nivel{font-size:.68rem;background:var(--bg-card);border:1px solid var(--border);border-radius:99px;padding:.12rem .45rem;color:var(--text-muted)}
+.apt-nome{font-size:.9rem;font-weight:700;margin:0 0 .35rem;color:var(--text)}
+.apt-desc{font-size:.8rem;color:var(--text-dim);line-height:1.4;margin:0}
+.apt-req-tag{font-size:.7rem;color:var(--text-muted);margin-top:.45rem}
+.req-chip{background:var(--bg-card);border:1px solid var(--border);border-radius:4px;padding:.08rem .3rem;margin:.1rem;display:inline-block;color:var(--text-dim)}
+.apt-lock-msg{font-size:.7rem;color:#f87171;margin-top:.35rem;font-weight:600}
+</style>
+{% endblock %}

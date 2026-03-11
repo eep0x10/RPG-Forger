@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+{% block title %}Expansão de Domínio – {{ dados.nome }}{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">🌐 Expansão de Domínio</h1>
+    <p class="page-sub">{{ dados.nome }} · Nível {{ dados.nivel }}</p>
+  </div>
+  <a href="{{ url_for('ver_personagem', pid=pid) }}" class="btn btn-secondary">← Ficha</a>
+</div>
+
+{% if not tipos_disponiveis %}
+<div class="empty-state">
+  <div style="font-size:3rem;margin-bottom:1rem">🔒</div>
+  <h3>Nenhuma aptidão de domínio desbloqueada</h3>
+  <p style="color:var(--text-muted)">Adquira a aptidão "Expansão de Domínio I" (nível 4) para criar sua expansão.</p>
+  <a href="{{ url_for('gerenciar_aptidoes', pid=pid) }}" class="btn btn-primary" style="margin-top:1rem">Ver Aptidões</a>
+</div>
+{% else %}
+
+{% if dominio %}
+<!-- Existing domain display -->
+<div class="dominio-card">
+  <div class="dominio-header">
+    <div>
+      <h2 class="dominio-nome">{{ dominio.nome or 'Sem nome' }}</h2>
+      <span class="dominio-tipo-badge">{{ dominio_tipos.get(dominio.tipo, {}).get('nome', dominio.tipo) }}</span>
+    </div>
+    <div style="display:flex;gap:.5rem">
+      <button class="btn btn-secondary" onclick="document.getElementById('form-editar').style.display='block';this.closest('.dominio-card').style.display='none'">✏ Editar</button>
+      <form method="POST" onsubmit="return confirm('Deletar expansão de domínio?')">
+        <input type="hidden" name="action" value="deletar">
+        <button class="btn btn-danger">🗑 Deletar</button>
+      </form>
+    </div>
+  </div>
+
+  {% set tipo_info = dominio_tipos.get(dominio.tipo, {}) %}
+  <div class="dominio-tags">
+    {% if tipo_info.get('tem_acerto_garantido') %}
+    <span class="dominio-tag acerto">⚡ Acerto Garantido</span>
+    {% endif %}
+    {% if tipo_info.get('tem_barreira') %}
+    <span class="dominio-tag barreira">🛡 Barreira</span>
+    {% else %}
+    <span class="dominio-tag sem-barreira">🌀 Sem Barreira</span>
+    {% endif %}
+  </div>
+
+  {% if dominio.descricao %}
+  <div class="dominio-section">
+    <h4>Descrição</h4>
+    <p>{{ dominio.descricao }}</p>
+  </div>
+  {% endif %}
+
+  {% if dominio.efeito_acerto_garantido %}
+  <div class="dominio-section">
+    <h4>⚡ Efeito de Acerto Garantido</h4>
+    <p>{{ dominio.efeito_acerto_garantido }}</p>
+  </div>
+  {% endif %}
+
+  {% if dominio.amplificacoes %}
+  <div class="dominio-section">
+    <h4>✨ Amplificações de Técnica</h4>
+    <p>{{ dominio.amplificacoes }}</p>
+  </div>
+  {% endif %}
+
+  {% if dominio.efeito_ambiental %}
+  <div class="dominio-section">
+    <h4>🌍 Efeito Ambiental</h4>
+    <p>{{ dominio.efeito_ambiental }}</p>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- Create/Edit Form -->
+<div id="form-editar" {% if dominio %}style="display:none"{% endif %}>
+  <div class="dominio-form-wrap">
+    <h3 class="section-title">{{ 'Editar' if dominio else 'Criar' }} Expansão de Domínio</h3>
+
+    <form method="POST">
+      <input type="hidden" name="action" value="salvar">
+
+      <div class="form-group">
+        <label class="form-label">Nome da Expansão de Domínio</label>
+        <input type="text" name="nome" class="form-input" required
+               value="{{ dominio.nome if dominio else '' }}"
+               placeholder="Ex: Arca Prisão Vazia / Território Selvagem">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Tipo de Expansão</label>
+        <div class="tipo-selector" id="tipo-selector">
+          {% for k, v in dominio_tipos.items() %}
+          {% set disponivel = k in tipos_disponiveis %}
+          <label class="tipo-option {{ 'disabled' if not disponivel else '' }}"
+                 style="cursor:{{ 'pointer' if disponivel else 'not-allowed' }}">
+            <input type="radio" name="tipo" value="{{ k }}" required
+                   {{ 'checked' if dominio and dominio.tipo == k else '' }}
+                   {{ 'disabled' if not disponivel else '' }}
+                   onchange="atualizarTipo(this.value)">
+            <div class="tipo-card {{ 'locked' if not disponivel else '' }}">
+              <span class="tipo-nome">{{ v.nome }}</span>
+              {% if v.tem_acerto_garantido %}<span class="tipo-tag acerto">Acerto Garantido</span>{% endif %}
+              {% if v.tem_barreira %}<span class="tipo-tag barreira">Barreira</span>{% endif %}
+              {% if not disponivel %}<span class="tipo-tag locked-tag">🔒 Req. aptidão</span>{% endif %}
+              <p class="tipo-desc">{{ v.descricao }}</p>
+            </div>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Descrição Geral</label>
+        <textarea name="descricao" class="form-input form-textarea" rows="3"
+                  placeholder="Descreva o ambiente e a atmosfera criada pelo domínio...">{{ dominio.descricao if dominio else '' }}</textarea>
+      </div>
+
+      <div id="sec-acerto-garantido" style="{{ '' if dominio and dominio_tipos.get(dominio.tipo, {}).get('tem_acerto_garantido') else 'display:none' }}">
+        <div class="form-group">
+          <label class="form-label">⚡ Efeito de Acerto Garantido</label>
+          <textarea name="efeito_acerto_garantido" class="form-input form-textarea" rows="3"
+                    placeholder="Descreva o efeito imbuído na barreira que garante acerto em todos os ataques...">{{ dominio.efeito_acerto_garantido if dominio else '' }}</textarea>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">✨ Amplificações de Técnica</label>
+        <textarea name="amplificacoes" class="form-input form-textarea" rows="2"
+                  placeholder="Quais técnicas são amplificadas dentro do domínio? Como?">{{ dominio.amplificacoes if dominio else '' }}</textarea>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">🌍 Efeito Ambiental / Especial</label>
+        <textarea name="efeito_ambiental" class="form-input form-textarea" rows="2"
+                  placeholder="Efeitos especiais do ambiente criado pelo domínio...">{{ dominio.efeito_ambiental if dominio else '' }}</textarea>
+      </div>
+
+      <div class="form-actions">
+        {% if dominio %}
+        <button type="button" class="btn btn-secondary"
+                onclick="document.getElementById('form-editar').style.display='none';document.querySelector('.dominio-card').style.display='block'">
+          Cancelar
+        </button>
+        {% else %}
+        <a href="{{ url_for('ver_personagem', pid=pid) }}" class="btn btn-secondary">Cancelar</a>
+        {% endif %}
+        <button type="submit" class="btn btn-primary">💾 Salvar Expansão</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Reference panel -->
+  <div class="dominio-ref">
+    <h4>📋 Referência por Tipo</h4>
+    {% for k, v in dominio_tipos.items() %}
+    <div class="dominio-ref-item">
+      <strong>{{ v.nome }}</strong>
+      <p>{{ v.descricao }}</p>
+    </div>
+    {% endfor %}
+
+    <h4 style="margin-top:1rem">📐 Parâmetros Padrão</h4>
+    <div class="ref-rules">
+      <p><strong>Completa:</strong> Esfera de 9m de raio. PV da barreira = 6 × nível aptidão Domínio.</p>
+      <p><strong>Duração:</strong> 3 + nível aptidão de Domínio rodadas.</p>
+      <p><strong>Sem Barreira:</strong> Raio até 9m × Bônus de Maestria.</p>
+      <p><strong>Incompleta:</strong> Raio 4,5m × BM. Sem acerto garantido.</p>
+    </div>
+  </div>
+</div>
+
+{% if not dominio %}
+{% else %}
+<script>
+// Show the form when no domain exists
+</script>
+{% endif %}
+
+{% endif %}
+
+<script>
+const TIPOS_COM_ACERTO = ['completa_letal', 'sem_barreira'];
+function atualizarTipo(val) {
+  const sec = document.getElementById('sec-acerto-garantido');
+  if (sec) sec.style.display = TIPOS_COM_ACERTO.includes(val) ? '' : 'none';
+}
+// Init on load if editing
+document.querySelectorAll('input[name="tipo"]:checked').forEach(el => atualizarTipo(el.value));
+</script>
+
+<style>
+.dominio-card{background:var(--bg-card);border:2px solid var(--accent);border-radius:12px;padding:1.5rem;margin-bottom:1.5rem}
+.dominio-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.8rem;gap:1rem;flex-wrap:wrap}
+.dominio-nome{font-size:1.4rem;font-weight:700;margin:0}
+.dominio-tipo-badge{display:inline-block;background:var(--accent);color:#fff;border-radius:99px;padding:.2rem .7rem;font-size:.78rem;margin-top:.3rem}
+.dominio-tags{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}
+.dominio-tag{padding:.2rem .6rem;border-radius:99px;font-size:.75rem;font-weight:600}
+.dominio-tag.acerto{background:#3b0d0d;color:#fca5a5}
+.dominio-tag.barreira{background:#0d2010;color:#86efac}
+.dominio-tag.sem-barreira{background:#1e1b4b;color:#a5b4fc}
+.dominio-section{margin:.8rem 0;padding:.8rem;background:var(--bg-input);border:1px solid var(--border);border-radius:8px}
+.dominio-section h4{font-size:.82rem;text-transform:uppercase;letter-spacing:.4px;margin:0 0 .35rem;color:var(--accent)}
+.dominio-section p{margin:0;font-size:.9rem;color:var(--text-dim);line-height:1.5}
+.dominio-form-wrap{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:1.5rem;margin-bottom:1rem}
+.tipo-selector{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:.75rem;margin-bottom:.5rem}
+.tipo-option{display:block;cursor:pointer}
+.tipo-card{background:var(--bg-input);border:1.5px solid var(--border);border-radius:8px;padding:.85rem;transition:border-color .15s,background .15s}
+.tipo-option input[type="radio"]{display:none}
+.tipo-option input[type="radio"]:checked+.tipo-card{border-color:var(--accent);background:rgba(124,58,237,.1);box-shadow:0 0 12px rgba(124,58,237,.15)}
+.tipo-card.locked{opacity:.45;cursor:not-allowed}
+.tipo-nome{display:block;font-weight:700;font-size:.88rem;margin-bottom:.4rem;color:var(--text)}
+.tipo-tag{display:inline-block;padding:.1rem .4rem;border-radius:99px;font-size:.68rem;margin:.1rem}
+.tipo-tag.acerto{background:#3b0d0d;color:#fca5a5}
+.tipo-tag.barreira{background:#0d2010;color:#86efac}
+.tipo-tag.locked-tag{background:var(--bg-card);color:var(--text-muted);border:1px solid var(--border)}
+.tipo-desc{font-size:.78rem;color:var(--text-muted);margin:.45rem 0 0;line-height:1.4}
+.dominio-ref{background:var(--bg-input);border:1px solid var(--border);border-radius:10px;padding:1rem;margin-top:1rem}
+.dominio-ref h4{color:var(--accent);margin:0 0 .6rem;font-size:.9rem}
+.dominio-ref-item{padding:.5rem 0;border-bottom:1px solid var(--border);font-size:.85rem}
+.dominio-ref-item:last-child{border-bottom:none}
+.dominio-ref-item strong{color:var(--text)}
+.dominio-ref-item p{color:var(--text-muted);margin:.2rem 0 0;font-size:.8rem}
+.ref-rules p{font-size:.82rem;color:var(--text-dim);margin:.3rem 0}
+.empty-state{text-align:center;padding:3rem;color:var(--text-muted)}
+.empty-state h3{margin-bottom:.5rem}
+</style>
+{% endblock %}

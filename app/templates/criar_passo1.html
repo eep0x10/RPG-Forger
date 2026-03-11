@@ -1,0 +1,301 @@
+{% extends "base.html" %}
+{% block title %}Criar Personagem – Passo 1{% endblock %}
+
+{% block content %}
+<div class="wizard-container">
+  <!-- Progress -->
+  <div class="wizard-progress">
+    <div class="step active">
+      <div class="step-num">1</div>
+      <div class="step-label">Identidade</div>
+    </div>
+    <div class="step-line"></div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-label">Origem</div>
+    </div>
+    <div class="step-line"></div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-label">Especialização</div>
+    </div>
+    <div class="step-line"></div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-label">Equipamento</div>
+    </div>
+    <div class="step-line"></div>
+    <div class="step">
+      <div class="step-num">5</div>
+      <div class="step-label">Revisão</div>
+    </div>
+  </div>
+
+  <form action="{{ url_for('criar_passo2') }}" method="POST" class="wizard-form">
+    <div class="wizard-header">
+      <h2>Passo 1: Identidade & Atributos</h2>
+      <p>Defina quem é o seu personagem e distribua seus atributos base.</p>
+    </div>
+
+    <!-- Dados pessoais -->
+    <div class="form-section">
+      <h3 class="section-title">📋 Dados Pessoais</h3>
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label">Nome do Personagem *</label>
+          <input type="text" name="nome" class="form-input" placeholder="Ex: Yuuji Itadori" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Nome do Jogador</label>
+          <input type="text" name="jogador" class="form-input" placeholder="Seu nome">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Técnica Amaldiçoada</label>
+          <input type="text" name="tecnica" class="form-input" placeholder="Ex: Proporções, Ilimitado…">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Domínio Inato</label>
+          <input type="text" name="dominio_inato" class="form-input" placeholder="O espaço interior do personagem">
+        </div>
+      </div>
+    </div>
+
+    <!-- Aspectos Pessoais -->
+    <div class="form-section">
+      <h3 class="section-title">🧠 Aspectos Pessoais</h3>
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label">Traços de Personalidade</label>
+          <textarea name="tracos" class="form-input form-textarea" placeholder="Como pensa, sente e age…"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ideais</label>
+          <textarea name="ideais" class="form-input form-textarea" placeholder="Princípios e valores que guiam o personagem…"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ligações</label>
+          <textarea name="ligacoes" class="form-input form-textarea" placeholder="Pessoas, lugares e objetos importantes…"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Complicações</label>
+          <textarea name="complicacoes" class="form-input form-textarea" placeholder="Fraquezas e obstáculos…"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Atributos -->
+    <div class="form-section">
+      <h3 class="section-title">⚔️ Atributos</h3>
+
+      <div class="metodo-selector">
+        <label class="metodo-option">
+          <input type="radio" name="metodo_atributos" value="fixos" checked onchange="setMetodo('fixos')">
+          <div class="metodo-card">
+            <div class="metodo-icon">🎯</div>
+            <div class="metodo-nome">Valores Fixos</div>
+            <div class="metodo-desc">Distribua 15, 14, 13, 12, 10 e 8</div>
+          </div>
+        </label>
+        <label class="metodo-option">
+          <input type="radio" name="metodo_atributos" value="pontos" onchange="setMetodo('pontos')">
+          <div class="metodo-card">
+            <div class="metodo-icon">🎰</div>
+            <div class="metodo-nome">Compra por Pontos</div>
+            <div class="metodo-desc">17 pontos, valor 8–15</div>
+          </div>
+        </label>
+        <label class="metodo-option">
+          <input type="radio" name="metodo_atributos" value="rolagem" onchange="setMetodo('rolagem')">
+          <div class="metodo-card">
+            <div class="metodo-icon">🎲</div>
+            <div class="metodo-nome">Rolagem</div>
+            <div class="metodo-desc">4d6, descarte o menor</div>
+          </div>
+        </label>
+      </div>
+
+      <!-- Valores Fixos -->
+      <div id="metodo-fixos" class="metodo-content">
+        <div class="fixos-info">
+          <p>Arraste ou clique nos valores para atribuir a cada atributo.</p>
+          <div class="valores-pool" id="valores-pool">
+            {% for v in valores_fixos %}
+            <span class="valor-chip" data-valor="{{ v }}" onclick="atribuirValor({{ v }})">{{ v }}</span>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Compra por Pontos -->
+      <div id="metodo-pontos" class="metodo-content" style="display:none">
+        <div class="pontos-info">
+          <div class="pontos-counter">
+            Pontos disponíveis: <strong id="pontos-disp">17</strong>
+          </div>
+          <p class="text-muted">Custo: 8(+2) 9(+1) 10(0) 11(2) 12(3) 13(4) 14(5) 15(7)</p>
+        </div>
+      </div>
+
+      <!-- Rolagem -->
+      <div id="metodo-rolagem" class="metodo-content" style="display:none">
+        <button type="button" class="btn btn-secondary" onclick="rolarTodos()">🎲 Rolar Todos</button>
+        <div class="rolagem-resultados" id="rolagem-resultados"></div>
+      </div>
+
+      <!-- Grid de atributos -->
+      <div class="atributos-grid">
+        {% set atrib_info = {
+          'forca': {'icon': '💪', 'desc': 'Poder muscular e físico'},
+          'destreza': {'icon': '⚡', 'desc': 'Agilidade, reflexos e rapidez'},
+          'constituicao': {'icon': '🛡️', 'desc': 'Resistência e vigor'},
+          'inteligencia': {'icon': '🧠', 'desc': 'Raciocínio e intelecto'},
+          'sabedoria': {'icon': '👁️', 'desc': 'Percepção e experiência'},
+          'presenca': {'icon': '✨', 'desc': 'Força de personalidade'}
+        } %}
+        {% for attr in atributos %}
+        <div class="atrib-card" id="card-{{ attr }}">
+          <div class="atrib-header">
+            <span class="atrib-icon">{{ atrib_info[attr]['icon'] }}</span>
+            <div>
+              <div class="atrib-nome">{{ atributos_labels[attr] }}</div>
+              <div class="atrib-desc">{{ atrib_info[attr]['desc'] }}</div>
+            </div>
+          </div>
+          <div class="atrib-controles">
+            <button type="button" class="btn-round" onclick="alterarAtrib('{{ attr }}', -1)">−</button>
+            <input type="number" id="input-{{ attr }}" name="attr_{{ attr }}"
+                   class="atrib-valor" value="10" min="1" max="20"
+                   onchange="atualizarMod('{{ attr }}')">
+            <button type="button" class="btn-round" onclick="alterarAtrib('{{ attr }}', 1)">+</button>
+          </div>
+          <div class="atrib-mod" id="mod-{{ attr }}">+0</div>
+          <div class="atrib-rolagem-result" id="rolagem-{{ attr }}"></div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="wizard-actions">
+      <a href="{{ url_for('index') }}" class="btn btn-ghost">Cancelar</a>
+      <button type="submit" class="btn btn-primary btn-lg">Próximo: Origem →</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const VALORES_FIXOS = [15, 14, 13, 12, 10, 8];
+const CUSTOS_PONTOS = {8: -2, 9: -1, 10: 0, 11: 2, 12: 3, 13: 4, 14: 5, 15: 7};
+const ATRIBUTOS = ['forca', 'destreza', 'constituicao', 'inteligencia', 'sabedoria', 'presenca'];
+
+let metodoAtual = 'fixos';
+let valoresUsados = {};
+let pontosDisp = 17;
+let rolagemPool = [];
+
+function setMetodo(m) {
+  metodoAtual = m;
+  document.querySelectorAll('.metodo-content').forEach(el => el.style.display = 'none');
+  document.getElementById(`metodo-${m}`).style.display = 'block';
+  resetarAtributos();
+}
+
+function resetarAtributos() {
+  valoresUsados = {};
+  pontosDisp = 17;
+  ATRIBUTOS.forEach(a => {
+    document.getElementById(`input-${a}`).value = 10;
+    document.getElementById(`input-${a}`).readOnly = (metodoAtual !== 'pontos');
+    atualizarMod(a);
+    document.getElementById(`rolagem-${a}`).textContent = '';
+    document.getElementById(`card-${a}`).classList.remove('assigned');
+  });
+  atualizarChips();
+  if (document.getElementById('pontos-disp'))
+    document.getElementById('pontos-disp').textContent = pontosDisp;
+}
+
+function atualizarMod(attr) {
+  const val = parseInt(document.getElementById(`input-${attr}`).value) || 10;
+  const mod = Math.floor((val - 10) / 2);
+  document.getElementById(`mod-${attr}`).textContent = (mod >= 0 ? '+' : '') + mod;
+}
+
+function alterarAtrib(attr, delta) {
+  if (metodoAtual !== 'pontos') return;
+  const inp = document.getElementById(`input-${attr}`);
+  const val = parseInt(inp.value) || 10;
+  const novoVal = Math.max(8, Math.min(15, val + delta));
+
+  const custoAtual = CUSTOS_PONTOS[val] || 0;
+  const custoNovo = CUSTOS_PONTOS[novoVal] || 0;
+  const diff = custoNovo - custoAtual;
+
+  if (diff > 0 && pontosDisp < diff) return;
+
+  pontosDisp -= diff;
+  inp.value = novoVal;
+  atualizarMod(attr);
+  if (document.getElementById('pontos-disp'))
+    document.getElementById('pontos-disp').textContent = pontosDisp;
+}
+
+function atribuirValor(valor) {
+  if (metodoAtual !== 'fixos') return;
+  // Encontrar próximo atributo não atribuído
+  for (let a of ATRIBUTOS) {
+    if (!valoresUsados[a]) {
+      valoresUsados[a] = valor;
+      document.getElementById(`input-${a}`).value = valor;
+      document.getElementById(`card-${a}`).classList.add('assigned');
+      atualizarMod(a);
+      atualizarChips();
+      return;
+    }
+  }
+}
+
+function atualizarChips() {
+  const pool = document.getElementById('valores-pool');
+  if (!pool) return;
+  const atribuidos = Object.values(valoresUsados);
+  const chips = pool.querySelectorAll('.valor-chip');
+  const contagem = {};
+  VALORES_FIXOS.forEach(v => contagem[v] = (contagem[v] || 0) + 1);
+  atribuidos.forEach(v => contagem[v] = (contagem[v] || 1) - 1);
+
+  let idx = {};
+  chips.forEach(chip => {
+    const v = parseInt(chip.dataset.valor);
+    idx[v] = (idx[v] || 0);
+    if (idx[v] < (contagem[v] || 0)) {
+      chip.classList.remove('used');
+    } else {
+      chip.classList.add('used');
+    }
+    idx[v]++;
+  });
+}
+
+async function rolarTodos() {
+  rolagemPool = [];
+  document.getElementById('rolagem-resultados').innerHTML = '';
+  for (let a of ATRIBUTOS) {
+    const resp = await fetch('/api/rolar_dados', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({tipo: '4d6drop'})
+    });
+    const data = await resp.json();
+    rolagemPool.push(data.resultado);
+    document.getElementById(`input-${a}`).value = data.resultado;
+    document.getElementById(`rolagem-${a}`).textContent = `[${data.rolls.join(', ')}]`;
+    atualizarMod(a);
+  }
+}
+
+// Inicializar modificadores
+ATRIBUTOS.forEach(a => atualizarMod(a));
+</script>
+{% endblock %}

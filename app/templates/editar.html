@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block title %}Editar – {{ dados.nome }}{% endblock %}
+
+{% block content %}
+<div class="wizard-container wizard-container-wide">
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Editar: {{ dados.nome }}</h1>
+      <p class="page-subtitle">Nível {{ dados.nivel }} – {{ dados.calculado.grau }}</p>
+    </div>
+    <a href="{{ url_for('ver_personagem', pid=pid) }}" class="btn btn-ghost">← Voltar</a>
+  </div>
+
+  <form method="POST" action="{{ url_for('editar_personagem', pid=pid) }}" class="wizard-form">
+
+    <!-- Info básica -->
+    <div class="form-section">
+      <h3 class="section-title">📋 Informações</h3>
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label">Nome</label>
+          <input type="text" name="nome" class="form-input" value="{{ dados.nome }}" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Jogador</label>
+          <input type="text" name="jogador" class="form-input" value="{{ dados.jogador or '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Técnica Amaldiçoada</label>
+          <input type="text" name="tecnica" class="form-input" value="{{ dados.tecnica or '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">XP Atual</label>
+          <input type="number" name="xp" class="form-input" value="{{ dados.xp or 0 }}" min="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">PV Atual</label>
+          <input type="number" name="pv_atual" class="form-input"
+                 value="{{ dados.pv_atual or dados.calculado.pv_max }}"
+                 min="0" max="{{ dados.calculado.pv_max }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">PE Atual</label>
+          <input type="number" name="pe_atual" class="form-input"
+                 value="{{ dados.pe_atual or dados.calculado.pe_max }}"
+                 min="0" max="{{ dados.calculado.pe_max }}">
+        </div>
+      </div>
+    </div>
+
+    <!-- Atributos -->
+    <div class="form-section">
+      <h3 class="section-title">⚔️ Atributos</h3>
+      <div class="atributos-grid">
+        {% set atrib_icons = {'forca':'💪','destreza':'⚡','constituicao':'🛡️','inteligencia':'🧠','sabedoria':'👁️','presenca':'✨'} %}
+        {% for attr in atributos %}
+        {% set val = dados.atributos.get(attr, 10) %}
+        {% set mod = ((val - 10) // 2) %}
+        <div class="atrib-card">
+          <div class="atrib-header">
+            <span class="atrib-icon">{{ atrib_icons[attr] }}</span>
+            <div>
+              <div class="atrib-nome">{{ atributos_labels[attr] }}</div>
+            </div>
+          </div>
+          <div class="atrib-controles">
+            <button type="button" class="btn-round" onclick="alterarAtrib('{{ attr }}', -1)">−</button>
+            <input type="number" id="input-{{ attr }}" name="attr_{{ attr }}"
+                   class="atrib-valor" value="{{ val }}" min="1" max="30"
+                   onchange="atualizarMod('{{ attr }}')">
+            <button type="button" class="btn-round" onclick="alterarAtrib('{{ attr }}', 1)">+</button>
+          </div>
+          <div class="atrib-mod {{ 'pos' if mod >= 0 else 'neg' }}" id="mod-{{ attr }}">{{ '+' if mod >= 0 else '' }}{{ mod }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Aspectos -->
+    <div class="form-section">
+      <h3 class="section-title">🧠 Aspectos Pessoais</h3>
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label">Traços de Personalidade</label>
+          <textarea name="tracos" class="form-input form-textarea">{{ dados.tracos or '' }}</textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ideais</label>
+          <textarea name="ideais" class="form-input form-textarea">{{ dados.ideais or '' }}</textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ligações</label>
+          <textarea name="ligacoes" class="form-input form-textarea">{{ dados.ligacoes or '' }}</textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Complicações</label>
+          <textarea name="complicacoes" class="form-input form-textarea">{{ dados.complicacoes or '' }}</textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Feitiços e Notas -->
+    <div class="form-section">
+      <h3 class="section-title">🔮 Feitiços e Notas</h3>
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label">Feitiços (um por linha)</label>
+          <textarea name="feiticos_text" class="form-input form-textarea" rows="8">{{ dados.feiticos | join('\n') if dados.feiticos else '' }}</textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Notas</label>
+          <textarea name="notas" class="form-input form-textarea" rows="8">{{ dados.notas or '' }}</textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="wizard-actions">
+      <a href="{{ url_for('ver_personagem', pid=pid) }}" class="btn btn-ghost">Cancelar</a>
+      <button type="submit" class="btn btn-primary btn-lg">💾 Salvar Alterações</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function alterarAtrib(attr, delta) {
+  const inp = document.getElementById(`input-${attr}`);
+  const val = parseInt(inp.value) || 10;
+  const novoVal = Math.max(1, Math.min(30, val + delta));
+  inp.value = novoVal;
+  atualizarMod(attr);
+}
+function atualizarMod(attr) {
+  const val = parseInt(document.getElementById(`input-${attr}`).value) || 10;
+  const mod = Math.floor((val - 10) / 2);
+  const el = document.getElementById(`mod-${attr}`);
+  if (el) {
+    el.textContent = (mod >= 0 ? '+' : '') + mod;
+    el.className = `atrib-mod ${mod >= 0 ? 'pos' : 'neg'}`;
+  }
+}
+</script>
+{% endblock %}

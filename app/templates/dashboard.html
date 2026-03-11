@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}Dashboard – RPG Forge{% endblock %}
+{% block content %}
+
+<div class="dash-header">
+  <div>
+    <h1 class="page-title">Bem-vindo, {{ usuario.username }}</h1>
+    <p class="page-sub">Escolha um sistema ou gerencie suas mesas</p>
+  </div>
+</div>
+
+<!-- Sistemas -->
+<section class="dash-section">
+  <h2 class="dash-section-title">🎲 Sistemas de RPG</h2>
+  <div class="systems-grid">
+
+    <a href="{{ url_for('sistema_jujutsu') }}" class="system-card system-active">
+      <div class="system-icon">⚡</div>
+      <div class="system-info">
+        <h3 class="system-nome">Feiticeiros & Maldições</h3>
+        <p class="system-desc">Sistema baseado em Jujutsu Kaisen. Técnicas, domínios e maldições.</p>
+      </div>
+      <span class="system-badge">Disponível</span>
+    </a>
+
+    <div class="system-card system-locked">
+      <div class="system-icon">🐉</div>
+      <div class="system-info">
+        <h3 class="system-nome">Old Dragon 2e</h3>
+        <p class="system-desc">RPG clássico de fantasia medieval com classes e raças tradicionais.</p>
+      </div>
+      <span class="system-badge system-badge-locked">Em breve</span>
+    </div>
+
+  </div>
+</section>
+
+<!-- Mesas -->
+<section class="dash-section">
+  <div class="dash-section-header">
+    <h2 class="dash-section-title">🎭 Mesas</h2>
+    <div style="display:flex;gap:.5rem">
+      <a href="{{ url_for('entrar_mesa') }}" class="btn btn-secondary btn-sm">Entrar por Código</a>
+      <a href="{{ url_for('criar_mesa') }}" class="btn btn-primary btn-sm">+ Criar Mesa</a>
+    </div>
+  </div>
+
+  {% if mesas_mestre or mesas_player %}
+  <div class="mesas-grid">
+
+    {% for mesa in mesas_mestre %}
+    <div class="mesa-card">
+      <div class="mesa-card-header">
+        <div>
+          <span class="mesa-sistema-badge">{{ mesa.sistema }}</span>
+          <span class="mesa-role-badge role-mestre">Mestre</span>
+        </div>
+        <code class="mesa-codigo">{{ mesa.codigo }}</code>
+      </div>
+      <h3 class="mesa-nome">{{ mesa.nome }}</h3>
+      <div class="mesa-card-footer">
+        <a href="{{ url_for('ver_mesa', codigo=mesa.codigo) }}" class="btn btn-sm btn-primary">Abrir Mesa →</a>
+      </div>
+    </div>
+    {% endfor %}
+
+    {% for mesa in mesas_player %}
+    <div class="mesa-card">
+      <div class="mesa-card-header">
+        <div>
+          <span class="mesa-sistema-badge">{{ mesa.sistema }}</span>
+          <span class="mesa-role-badge role-player">Jogador</span>
+        </div>
+        <code class="mesa-codigo">{{ mesa.codigo }}</code>
+      </div>
+      <h3 class="mesa-nome">{{ mesa.nome }}</h3>
+      <p class="mesa-char-nome">⚔️ {{ mesa.nome_personagem }}</p>
+      <div class="mesa-card-footer">
+        <a href="{{ url_for('ver_mesa', codigo=mesa.codigo) }}" class="btn btn-sm btn-secondary">Ver Mesa →</a>
+      </div>
+    </div>
+    {% endfor %}
+
+  </div>
+  {% else %}
+  <div class="empty-state" style="padding:2rem">
+    <p>Nenhuma mesa ainda. Crie uma ou entre com um código!</p>
+  </div>
+  {% endif %}
+</section>
+
+<style>
+.dash-header{margin-bottom:2rem}
+.dash-section{margin-bottom:2.5rem}
+.dash-section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem}
+.dash-section-title{font-size:1rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin:0 0 1rem}
+.dash-section-header .dash-section-title{margin:0}
+
+/* Systems */
+.systems-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1rem}
+.system-card{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:1.5rem;display:flex;align-items:flex-start;gap:1rem;transition:border-color .15s,box-shadow .15s;text-decoration:none;color:var(--text)}
+.system-active:hover{border-color:var(--accent);box-shadow:0 0 20px rgba(124,58,237,.15)}
+.system-locked{opacity:.5;cursor:not-allowed}
+.system-icon{font-size:2.2rem;flex-shrink:0}
+.system-info{flex:1}
+.system-nome{font-size:1rem;font-weight:700;margin:0 0 .3rem}
+.system-desc{font-size:.82rem;color:var(--text-muted);margin:0;line-height:1.4}
+.system-badge{font-size:.7rem;padding:.2rem .6rem;border-radius:99px;background:rgba(16,185,129,.15);color:#10b981;border:1px solid rgba(16,185,129,.3);white-space:nowrap;flex-shrink:0}
+.system-badge-locked{background:rgba(100,116,139,.1);color:var(--text-muted);border-color:var(--border)}
+
+/* Mesas */
+.mesas-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1rem}
+.mesa-card{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:1.25rem;display:flex;flex-direction:column;gap:.6rem}
+.mesa-card-header{display:flex;justify-content:space-between;align-items:flex-start}
+.mesa-sistema-badge{font-size:.68rem;background:rgba(124,58,237,.15);color:var(--accent-light);border-radius:99px;padding:.1rem .45rem;margin-right:.3rem;text-transform:uppercase;letter-spacing:.4px}
+.mesa-role-badge{font-size:.68rem;border-radius:99px;padding:.1rem .45rem}
+.role-mestre{background:rgba(245,158,11,.12);color:#f59e0b}
+.role-player{background:rgba(6,182,212,.12);color:#06b6d4}
+.mesa-codigo{font-size:.8rem;background:var(--bg-input);border:1px solid var(--border);border-radius:5px;padding:.1rem .45rem;color:var(--text-dim);font-family:monospace;letter-spacing:.1em}
+.mesa-nome{font-size:1rem;font-weight:700;margin:0}
+.mesa-char-nome{font-size:.82rem;color:var(--text-muted);margin:0}
+.mesa-card-footer{margin-top:auto;padding-top:.5rem}
+</style>
+{% endblock %}

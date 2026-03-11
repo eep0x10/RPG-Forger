@@ -1,0 +1,257 @@
+{% extends "base.html" %}
+{% block title %}Criar Personagem – Passo 3: Especialização{% endblock %}
+
+{% block content %}
+<div class="wizard-container">
+  <div class="wizard-progress">
+    <div class="step done"><div class="step-num">✓</div><div class="step-label">Identidade</div></div>
+    <div class="step-line done"></div>
+    <div class="step done"><div class="step-num">✓</div><div class="step-label">Origem</div></div>
+    <div class="step-line done"></div>
+    <div class="step active"><div class="step-num">3</div><div class="step-label">Especialização</div></div>
+    <div class="step-line"></div>
+    <div class="step"><div class="step-num">4</div><div class="step-label">Equipamento</div></div>
+    <div class="step-line"></div>
+    <div class="step"><div class="step-num">5</div><div class="step-label">Revisão</div></div>
+  </div>
+
+  <form action="{{ url_for('criar_passo4') }}" method="POST" class="wizard-form">
+    <div class="wizard-header">
+      <h2>Passo 3: Especialização</h2>
+      <p>A especialização define como você luta, canaliza energia e enfrenta as maldições.</p>
+    </div>
+
+    {% if dados.origem == 'sem_tecnica' %}
+    <div class="alert alert-warning">
+      ⚠️ Como <strong>Sem Técnica</strong>, você não pode escolher a especialização <em>Especialista em Técnica</em>.
+    </div>
+    {% endif %}
+    {% if dados.origem == 'restringido' %}
+    <div class="alert alert-info">
+      ℹ️ Como <strong>Restringido</strong>, você deve escolher a especialização <em>Restringido</em>.
+    </div>
+    {% endif %}
+
+    <input type="hidden" name="especializacao" id="spec-input" value="lutador">
+
+    <!-- Grid de especializações -->
+    <div class="spec-grid">
+      {% for key, spec in especializacoes.items() %}
+      {% set bloqueado = (dados.origem == 'sem_tecnica' and key == 'especialista_tecnica') or (dados.origem == 'restringido' and key != 'restringido') or (dados.origem != 'restringido' and key == 'restringido') %}
+      <div class="spec-card {% if key == 'lutador' and dados.origem != 'restringido' %}selected{% elif key == 'restringido' and dados.origem == 'restringido' %}selected{% endif %} {% if bloqueado %}bloqueado{% endif %}"
+           data-key="{{ key }}"
+           onclick="{% if not bloqueado %}selecionarSpec('{{ key }}', this){% endif %}">
+        <div class="spec-header">
+          <h4 class="spec-nome">{{ spec.nome }}</h4>
+          {% if bloqueado %}<span class="badge badge-locked">Bloqueado</span>{% endif %}
+        </div>
+        <p class="spec-desc">{{ spec.descricao }}</p>
+        <div class="spec-stats">
+          <div class="spec-stat">
+            <span class="spec-stat-label">PV</span>
+            <span class="spec-stat-val">{{ spec.pv_inicial }}+CON</span>
+          </div>
+          <div class="spec-stat">
+            <span class="spec-stat-label">{% if key == 'restringido' %}PE{% else %}PE{% endif %}</span>
+            <span class="spec-stat-val">{% if key == 'restringido' %}4/nível (Estamina){% else %}{{ spec.pe_por_nivel }}/nível{% endif %}</span>
+          </div>
+        </div>
+        <div class="spec-exemplos text-muted">{{ spec.exemplos }}</div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Detalhes da especialização selecionada -->
+    <div id="spec-detalhes" class="form-section">
+      <!-- Preenchido via JS -->
+    </div>
+
+    <!-- Atributo Chave -->
+    <div class="form-section" id="atrib-chave-section">
+      <h3 class="section-title">🎯 Atributo Chave</h3>
+      <p class="text-muted">Usado para calcular a CD das suas habilidades de especialização.</p>
+      <div class="atrib-chave-options" id="atrib-chave-options">
+        <!-- Preenchido via JS -->
+      </div>
+      <input type="hidden" name="atributo_chave" id="atrib-chave-input" value="forca">
+    </div>
+
+    <!-- Teste de Resistência -->
+    <div class="form-section">
+      <h3 class="section-title">🛡️ Teste de Resistência</h3>
+      <p class="text-muted">Escolha o teste de resistência que sua especialização concede treinamento.</p>
+      <div class="tr-options" id="tr-options">
+        <!-- Preenchido via JS -->
+      </div>
+      <input type="hidden" name="tr_escolhido" id="tr-input" value="Fortitude">
+    </div>
+
+    <!-- Perícias -->
+    <div class="form-section">
+      <h3 class="section-title">📚 Perícias</h3>
+      <p id="pericias-instrucoes" class="text-muted">Escolha as perícias conforme os treinamentos da sua especialização.</p>
+      <div class="pericias-grid" id="pericias-grid">
+        {% for p in pericias %}
+        <label class="pericia-check">
+          <input type="checkbox" name="pericias" value="{{ p }}" onchange="verificarPericias()">
+          <span>{{ p }}</span>
+        </label>
+        {% endfor %}
+      </div>
+      <div class="pericias-counter" id="pericias-counter">
+        Selecionadas: <strong id="pericias-count">0</strong> / <strong id="pericias-max">5</strong>
+      </div>
+    </div>
+
+    <div class="wizard-actions">
+      <a href="javascript:history.back()" class="btn btn-ghost">← Voltar</a>
+      <button type="submit" class="btn btn-primary btn-lg" id="btn-proximo">Próximo: Equipamento →</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const SPECS_DATA = {{ especializacoes | tojson }};
+const ATRIBUTOS_LABELS = {{ atributos_labels | tojson }};
+const ORIGEM_ATUAL = '{{ dados.origem }}';
+
+const TR_POR_SPEC = {
+  'lutador': ['Fortitude', 'Reflexos'],
+  'especialista_combate': ['Fortitude', 'Reflexos'],
+  'especialista_tecnica': ['Astúcia', 'Vontade'],
+  'controlador': ['Astúcia', 'Vontade'],
+  'suporte': ['Astúcia', 'Vontade'],
+  'restringido': null, // ambos
+};
+
+const MAX_PERICIAS = {
+  'lutador': 5,
+  'especialista_combate': 5,
+  'especialista_tecnica': 4,
+  'controlador': 4,
+  'suporte': 5,
+  'restringido': 5,
+};
+
+let specAtual = ORIGEM_ATUAL === 'restringido' ? 'restringido' : 'lutador';
+
+function selecionarSpec(key, el) {
+  document.querySelectorAll('.spec-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  specAtual = key;
+  document.getElementById('spec-input').value = key;
+
+  carregarDetalhesSpec(key);
+  atualizarAtribChave(key);
+  atualizarTR(key);
+  atualizarPericias(key);
+}
+
+async function carregarDetalhesSpec(key) {
+  const spec = SPECS_DATA[key];
+  if (!spec) return;
+
+  let html = `<h3 class="section-title">📖 ${spec.nome}</h3>
+    <div class="spec-detail-grid">
+      <div class="spec-detail-item">
+        <div class="spec-detail-label">Treinamentos</div>
+        <div class="spec-detail-val">${spec.treinamentos}</div>
+      </div>
+      <div class="spec-detail-item">
+        <div class="spec-detail-label">Multiclasse</div>
+        <div class="spec-detail-val">${spec.req_multiclasse}</div>
+      </div>
+    </div>
+    <div class="habilidades-base-lista">
+      <h4>Habilidades Base (Nível 1)</h4>`;
+
+  for (const h of spec.habilidades_base || []) {
+    html += `<div class="hab-item">
+      <div class="hab-nome">⚡ ${h.nome}</div>
+      <div class="hab-desc">${h.desc}</div>
+    </div>`;
+  }
+  html += '</div>';
+  document.getElementById('spec-detalhes').innerHTML = html;
+}
+
+function atualizarAtribChave(key) {
+  const spec = SPECS_DATA[key];
+  if (!spec) return;
+  const opcoes = spec.atributos_chave || ['forca'];
+  const container = document.getElementById('atrib-chave-options');
+
+  container.innerHTML = '';
+  opcoes.forEach((attr, i) => {
+    const label = ATRIBUTOS_LABELS[attr] || attr;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `atrib-chave-btn ${i === 0 ? 'selected' : ''}`;
+    btn.textContent = label;
+    btn.dataset.attr = attr;
+    if (i === 0) document.getElementById('atrib-chave-input').value = attr;
+    btn.onclick = () => {
+      container.querySelectorAll('.atrib-chave-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      document.getElementById('atrib-chave-input').value = attr;
+    };
+    container.appendChild(btn);
+  });
+}
+
+function atualizarTR(key) {
+  const opcoes = TR_POR_SPEC[key];
+  const container = document.getElementById('tr-options');
+  container.innerHTML = '';
+
+  if (!opcoes) {
+    // Restringido: ambos automaticamente
+    container.innerHTML = '<p class="text-success">✓ Fortitude e Reflexos (automático)</p>';
+    document.getElementById('tr-input').value = 'Fortitude';
+    return;
+  }
+
+  opcoes.forEach((tr, i) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `atrib-chave-btn ${i === 0 ? 'selected' : ''}`;
+    btn.textContent = tr;
+    if (i === 0) document.getElementById('tr-input').value = tr;
+    btn.onclick = () => {
+      container.querySelectorAll('.atrib-chave-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      document.getElementById('tr-input').value = tr;
+    };
+    container.appendChild(btn);
+  });
+}
+
+function atualizarPericias(key) {
+  const max = MAX_PERICIAS[key] || 5;
+  document.getElementById('pericias-max').textContent = max;
+  document.querySelectorAll('input[name="pericias"]').forEach(c => c.checked = false);
+  document.getElementById('pericias-count').textContent = '0';
+}
+
+function verificarPericias() {
+  const max = parseInt(document.getElementById('pericias-max').textContent);
+  const checked = document.querySelectorAll('input[name="pericias"]:checked');
+  document.getElementById('pericias-count').textContent = checked.length;
+
+  if (checked.length > max) {
+    event.target.checked = false;
+    document.getElementById('pericias-count').textContent = max;
+  }
+}
+
+// Inicializar
+const initKey = ORIGEM_ATUAL === 'restringido' ? 'restringido' : 'lutador';
+document.getElementById('spec-input').value = initKey;
+carregarDetalhesSpec(initKey);
+atualizarAtribChave(initKey);
+atualizarTR(initKey);
+atualizarPericias(initKey);
+</script>
+{% endblock %}
