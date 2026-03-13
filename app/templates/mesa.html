@@ -44,7 +44,7 @@
   </script>
   {% else %}
   <p class="page-sub">Você não tem personagens para este sistema.
-    <a href="{{ url_for('criar') }}" class="btn btn-sm btn-primary" style="margin-left:.5rem">Criar Personagem</a>
+    <a href="{{ url_criar }}" class="btn btn-sm btn-primary" style="margin-left:.5rem">Criar Personagem</a>
   </p>
   {% endif %}
 </div>
@@ -52,7 +52,7 @@
 <div class="mesa-meu-char-box">
   <span>⚔️ Seu personagem na mesa: <strong>{{ meu_char_na_mesa.nome }}</strong></span>
   <div style="display:flex;gap:.5rem">
-    <a href="{{ url_for('ver_personagem', pid=meu_char_na_mesa.id) }}" class="btn btn-sm btn-secondary">Ver Ficha</a>
+    <a href="{{ meu_char_na_mesa.url_ficha }}" class="btn btn-sm btn-secondary">Ver Ficha</a>
     <form method="POST" action="{{ url_for('desvincular_personagem', codigo=mesa.codigo, pid=meu_char_na_mesa.id) }}">
       <button class="btn btn-sm btn-danger">Desvincular</button>
     </form>
@@ -82,25 +82,27 @@
 
       <div class="mesa-char-stats">
         <div class="mesa-char-stat">
-          <span class="mcs-lbl">Grau</span>
+          <span class="mcs-lbl">Nível / Grau</span>
           <span class="mcs-val">{{ c.grau }}</span>
         </div>
         <div class="mesa-char-stat">
-          <span class="mcs-lbl">Especialização</span>
-          <span class="mcs-val">{{ c.especializacao }}</span>
+          <span class="mcs-lbl">Classe / Função</span>
+          <span class="mcs-val">{{ c.subtitulo }}</span>
         </div>
         <div class="mesa-char-stat pv">
           <span class="mcs-lbl">PV máx</span>
           <span class="mcs-val">{{ c.pv_max }}</span>
         </div>
+        {% if c.recurso_label %}
         <div class="mesa-char-stat pe">
-          <span class="mcs-lbl">PE máx</span>
-          <span class="mcs-val">{{ c.pe_max }}</span>
+          <span class="mcs-lbl">{{ c.recurso_label }}</span>
+          <span class="mcs-val">{{ c.recurso_max }}</span>
         </div>
+        {% endif %}
       </div>
 
       <div class="mesa-char-actions">
-        <a href="{{ url_for('ver_personagem', pid=c.id) }}" class="btn btn-sm btn-secondary">📋 Ver Ficha</a>
+        <a href="{{ c.url_ficha }}" class="btn btn-sm btn-secondary">📋 Ver Ficha</a>
         {% if not c.eh_meu %}
         <form method="POST" action="{{ url_for('clonar_personagem', codigo=mesa.codigo, pid=c.id) }}">
           <button class="btn btn-sm btn-primary" title="Clonar para seus personagens">📋 Clonar</button>

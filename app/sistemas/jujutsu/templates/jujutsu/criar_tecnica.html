@@ -1,0 +1,416 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Editar' if tec else 'Nova' }} Habilidade – {{ dados.nome }}{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{ '✏ Editar' if tec else '+ Nova' }} Habilidade de Técnica</h1>
+    <p class="page-sub">{{ dados.nome }} · {{ dados.tecnica or '' }}</p>
+  </div>
+  <a href="{{ url_for('jujutsu.listar_tecnicas', pid=pid) }}" class="btn btn-secondary">← Voltar</a>
+</div>
+
+<form method="POST" id="form-tecnica">
+<div class="form-layout">
+
+  <!-- LEFT: Basic info -->
+  <div class="form-col">
+    <div class="form-section">
+      <h3 class="section-title">Identificação</h3>
+
+      <div class="form-group">
+        <label class="form-label">Nome da Habilidade</label>
+        <input type="text" name="nome" class="form-input" required
+               value="{{ tec.nome if tec else '' }}" placeholder="Ex: Disparo de Pregos">
+      </div>
+
+      <div class="form-row-2">
+        <div class="form-group">
+          <label class="form-label">Nível da Habilidade</label>
+          <select name="nivel" id="sel-nivel" class="form-input" onchange="atualizarReferencias()">
+            {% for n in range(6) %}
+            <option value="{{ n }}" {{ 'selected' if tec and tec.nivel == n else '' }}>
+              Nível {{ n }}{% if n == 5 %} (Máximo){% endif %}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tipo</label>
+          <select name="tipo" id="sel-tipo" class="form-input" onchange="atualizarReferencias()">
+            {% for k, v in tecnica_tipos.items() %}
+            <option value="{{ k }}" {{ 'selected' if tec and tec.tipo == k else '' }}>{{ v }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row-2">
+        <div class="form-group">
+          <label class="form-label">Conjuração</label>
+          <select name="conjuracao" class="form-input">
+            {% for k, v in tecnica_conjuracao.items() %}
+            <option value="{{ k }}" {{ 'selected' if tec and tec.conjuracao == k else '' }}>{{ v }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Duração (Tipo)</label>
+          <select name="duracao_tipo" id="sel-duracao-tipo" class="form-input" onchange="atualizarReferencias()">
+            {% for k, v in tecnica_duracao.items() %}
+            <option value="{{ k }}" {{ 'selected' if tec and tec.duracao_tipo == k else '' }}>{{ v }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row-3">
+        <div class="form-group">
+          <label class="form-label">Alcance</label>
+          <input type="text" name="alcance" class="form-input"
+                 value="{{ tec.alcance if tec else '' }}" placeholder="Ex: 12 metros">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Área</label>
+          <input type="text" name="area" class="form-input"
+                 value="{{ tec.area if tec else '' }}" placeholder="Ex: 6m esférico">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Alvo</label>
+          <input type="text" name="alvo" class="form-input"
+                 value="{{ tec.alvo if tec else '' }}" placeholder="Ex: Uma Criatura">
+        </div>
+      </div>
+
+      <div class="form-row-2">
+        <div class="form-group">
+          <label class="form-label">Duração (Descrição)</label>
+          <input type="text" name="duracao" class="form-input"
+                 value="{{ tec.duracao if tec else '' }}" placeholder="Ex: Imediata">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Custo em PE</label>
+          <input type="text" name="custo_pe" class="form-input"
+                 value="{{ tec.custo_pe if tec else '' }}" placeholder="Ex: 3">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Descrição / Efeito</label>
+        <textarea name="descricao" class="form-input form-textarea" rows="5"
+                  placeholder="Descreva o efeito completo da habilidade...">{{ tec.descricao if tec else '' }}</textarea>
+      </div>
+
+      <div class="form-group">
+        <label class="checkbox-label">
+          <input type="checkbox" name="tem_tecnica_maxima" value="1"
+                 {{ 'checked' if tec and tec.get('tem_tecnica_maxima') else '' }}>
+          Esta habilidade possui uma Técnica Máxima (nível 5 → equivale a nível 6)
+        </label>
+      </div>
+    </div>
+
+    <!-- Condições -->
+    <div class="form-section">
+      <h3 class="section-title">Condições Aplicadas</h3>
+      <p class="section-hint">Máx = nível da habilidade. Custo: Fraca −1d, Média −3d, Forte −5d, Extrema −8d.</p>
+
+      <div id="condicoes-builder">
+        <div class="cond-row-header">
+          <span>Condição</span><span>Força</span><span>Alvo</span><span></span>
+        </div>
+        <div id="cond-list"></div>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="addCondicao()">+ Condição</button>
+      </div>
+      <input type="hidden" id="condicoes_json" name="condicoes_json" value="[]">
+
+      <!-- Referência de condições por força -->
+      <details class="ref-details" style="margin-top:.8rem">
+        <summary>Ver condições por força</summary>
+        {% for forca, lista in condicoes_por_forca.items() %}
+        <div style="margin:.4rem 0">
+          <strong class="forca-{{ forca }}">{{ forca.capitalize() }}</strong>:
+          {% for c in lista %}<span class="cond-chip">{{ c }}</span>{% endfor %}
+        </div>
+        {% endfor %}
+      </details>
+    </div>
+
+    <!-- Liberações Máximas -->
+    <div class="form-section" id="sec-liberacoes">
+      <h3 class="section-title">Liberações Máximas</h3>
+      <p class="section-hint">Custo base = 50% a mais que a habilidade. Referência por nível:</p>
+      <div class="lib-custo-ref">
+        {% for nv, custo in liberacao_maxima_custo.items() %}
+        <div class="lib-ref-item"><span>Nível {{ nv }}</span><span>{{ custo }} PE</span></div>
+        {% endfor %}
+      </div>
+      <div id="liberacoes-list"></div>
+      <button type="button" class="btn btn-sm btn-secondary" onclick="addLiberacao()">+ Liberação Máxima</button>
+      <input type="hidden" id="liberacoes_json" name="liberacoes_json" value="[]">
+    </div>
+  </div>
+
+  <!-- RIGHT: Reference tables -->
+  <div class="form-col ref-col">
+    <div class="form-section ref-section sticky-ref">
+      <h3 class="section-title">📊 Referência de Valores</h3>
+      <div id="ref-display">
+        <p class="ref-placeholder">Selecione o nível e tipo para ver os valores de referência.</p>
+      </div>
+
+      <details class="ref-details">
+        <summary>Tabela Completa – Dano Ofensivo</summary>
+        <table class="ref-table">
+          <tr><th>Nível</th><th>Alvo Único (Ataque)</th><th>Alvo Único (TR)</th><th>Área (TR)</th></tr>
+          {% for n in range(6) %}
+          <tr>
+            <td>{{ n }}</td>
+            <td>{{ dano_alvo_ataque.get(n, '—') }}</td>
+            <td>{{ dano_alvo_tr.get(n, '—') }}</td>
+            <td>{{ dano_area_tr.get(n, '—') }}</td>
+          </tr>
+          {% endfor %}
+        </table>
+
+        <table class="ref-table" style="margin-top:.6rem">
+          <tr><th>Nível</th><th>Alcance Padrão</th><th>Área Padrão</th></tr>
+          {% for n in range(6) %}
+          <tr>
+            <td>{{ n }}</td>
+            <td>{{ alcance_m.get(n, '—') }}m</td>
+            <td>{{ area_m.get(n, '—') if area_m.get(n) else '—' }}m</td>
+          </tr>
+          {% endfor %}
+        </table>
+      </details>
+
+      <details class="ref-details">
+        <summary>Tabela Completa – Auxiliares</summary>
+        <table class="ref-table">
+          <tr><th>Nível</th><th>CA / RD / Bônus</th><th>Imediata</th><th>Duradoura</th><th>Sustentada</th></tr>
+          {% for n in range(6) %}
+          <tr>
+            <td>{{ n }}</td>
+            <td>CA / RD / Bônus</td>
+            <td>{{ aux_ca[n].imediata }}</td>
+            <td>{{ aux_ca[n].duradoura }}</td>
+            <td>{{ aux_ca[n].sustentada }}</td>
+          </tr>
+          {% endfor %}
+        </table>
+        <table class="ref-table" style="margin-top:.6rem">
+          <tr><th>Nível</th><th>Cura Único</th><th>Cura Área</th></tr>
+          {% for n in range(1, 6) %}
+          <tr>
+            <td>{{ n }}</td>
+            <td>{{ aux_cura_unico.get(n, '—') }}</td>
+            <td>{{ aux_cura_area.get(n, '—') }}</td>
+          </tr>
+          {% endfor %}
+        </table>
+      </details>
+
+      <details class="ref-details">
+        <summary>Técnica Máxima (Nível 6)</summary>
+        <table class="ref-table">
+          <tr><th>Tipo</th><th>Valor</th></tr>
+          <tr><td>Dano alvo único (TR)</td><td>{{ tecnica_maxima_ref.dano_alvo_tr }}</td></tr>
+          <tr><td>Dano alvo único (ataque)</td><td>{{ tecnica_maxima_ref.dano_alvo_atq }}</td></tr>
+          <tr><td>Dano área (TR)</td><td>{{ tecnica_maxima_ref.dano_area_tr }}</td></tr>
+          <tr><td>Cura único</td><td>{{ tecnica_maxima_ref.cura_unico }}</td></tr>
+          <tr><td>Cura área</td><td>{{ tecnica_maxima_ref.cura_area }}</td></tr>
+          <tr><td>Custo PE</td><td>{{ tecnica_maxima_ref.custo_pe }}</td></tr>
+        </table>
+      </details>
+
+      <details class="ref-details">
+        <summary>Regras de Modificação</summary>
+        <div class="ref-rules">
+          <p><strong>Ação:</strong> Ação Completa: +nível dados. Ação Bônus: −(1+nível) dados (mín 1).</p>
+          <p><strong>Alcance/Área:</strong> −6m → +1 dado. +6m → −1 dado.</p>
+          <p><strong>Bônus de acerto:</strong> máx 2×nível. Penalidade CD: máx 1+nível.</p>
+          <p><strong>Passiva:</strong> Reduz PE máx em 2×nível da habilidade.</p>
+        </div>
+      </details>
+    </div>
+  </div>
+</div>
+
+<div class="form-actions">
+  <a href="{{ url_for('jujutsu.listar_tecnicas', pid=pid) }}" class="btn btn-secondary">Cancelar</a>
+  <button type="submit" class="btn btn-primary">
+    {{ '💾 Salvar Alterações' if tec else '✨ Criar Habilidade' }}
+  </button>
+</div>
+</form>
+
+<script>
+// ── Data from server ──
+const DANO_ALVO_ATAQUE = {{ dano_alvo_ataque | tojson }};
+const DANO_ALVO_TR     = {{ dano_alvo_tr | tojson }};
+const DANO_AREA_TR     = {{ dano_area_tr | tojson }};
+const ALCANCE_M        = {{ alcance_m | tojson }};
+const AREA_M           = {{ area_m | tojson }};
+const AUX_CA           = {{ aux_ca | tojson }};
+const AUX_CURA_UNICO   = {{ aux_cura_unico | tojson }};
+const AUX_CURA_AREA    = {{ aux_cura_area | tojson }};
+const AUX_CD           = {{ aux_cd | tojson }};
+const AUX_DANO_ADD     = {{ aux_dano_add | tojson }};
+const AUX_MOVIMENTO    = {{ aux_movimento | tojson }};
+const PASSIVA_RED_PE   = {{ passiva_red_pe | tojson }};
+
+const CONDICOES_POR_FORCA = {{ condicoes_por_forca | tojson }};
+const CONDICAO_CUSTO      = {{ condicao_custo_dados | tojson }};
+
+// Initial data from existing tec (if editing)
+let condicoes = {{ (tec.condicoes if tec else []) | tojson }};
+let liberacoes = {{ (tec.liberacoes_maximas if tec else []) | tojson }};
+
+// ── Reference display ──
+function atualizarReferencias() {
+  const nivel = parseInt(document.getElementById('sel-nivel').value);
+  const tipo  = document.getElementById('sel-tipo').value;
+  const durTipo = document.getElementById('sel-duracao-tipo').value;
+  const ref = document.getElementById('ref-display');
+
+  let html = `<div class="ref-nivel-title">Nível ${nivel}</div>`;
+
+  if (tipo === 'ofensiva_ataque') {
+    const d = DANO_ALVO_ATAQUE[nivel] || '—';
+    const a = ALCANCE_M[nivel] || '—';
+    html += `<div class="ref-stat"><span>Dano (Ataque)</span><span class="ref-val">${d}</span></div>`;
+    html += `<div class="ref-stat"><span>Alcance padrão</span><span class="ref-val">${a}m</span></div>`;
+  } else if (tipo === 'ofensiva_tr') {
+    const d = DANO_ALVO_TR[nivel] || '—';
+    const a = ALCANCE_M[nivel] || '—';
+    html += `<div class="ref-stat"><span>Dano (TR)</span><span class="ref-val">${d}</span></div>`;
+    html += `<div class="ref-stat"><span>Alcance padrão</span><span class="ref-val">${a}m</span></div>`;
+  } else if (tipo === 'ofensiva_area_tr') {
+    const d = DANO_AREA_TR[nivel] || '—';
+    const ar = AREA_M[nivel] || '—';
+    html += `<div class="ref-stat"><span>Dano em Área (TR)</span><span class="ref-val">${d}</span></div>`;
+    html += `<div class="ref-stat"><span>Área padrão</span><span class="ref-val">${ar}m</span></div>`;
+  } else if (tipo === 'auxiliar') {
+    const ca = (AUX_CA[nivel] || {})[durTipo] || '—';
+    const cd = (AUX_CD[nivel] || {})[durTipo] || '—';
+    const mov = (AUX_MOVIMENTO[nivel] || {})[durTipo] || '—';
+    const dd = (AUX_DANO_ADD[nivel] || {})[durTipo === 'imediata' ? 'imediata' : 'sustentada'] || '—';
+    html += `<div class="ref-stat"><span>CA / RD / Bônus</span><span class="ref-val">${ca}</span></div>`;
+    html += `<div class="ref-stat"><span>Aumento CD</span><span class="ref-val">+${cd}</span></div>`;
+    html += `<div class="ref-stat"><span>Aumento Movimento</span><span class="ref-val">${mov}m</span></div>`;
+    html += `<div class="ref-stat"><span>Dano Adicional</span><span class="ref-val">${dd}</span></div>`;
+  } else if (tipo === 'passiva') {
+    const red = PASSIVA_RED_PE[nivel] || 0;
+    html += `<div class="ref-stat"><span>Redução PE máx</span><span class="ref-val">−${red}</span></div>`;
+  } else if (tipo === 'cura_unico') {
+    const c = AUX_CURA_UNICO[nivel] || '—';
+    html += `<div class="ref-stat"><span>Cura (Alvo Único)</span><span class="ref-val">${c}</span></div>`;
+  } else if (tipo === 'cura_area') {
+    const c = AUX_CURA_AREA[nivel] || '—';
+    html += `<div class="ref-stat"><span>Cura (Área)</span><span class="ref-val">${c}</span></div>`;
+  }
+
+  ref.innerHTML = html;
+}
+
+// ── Condições Builder ──
+function renderCondicoes() {
+  const list = document.getElementById('cond-list');
+  list.innerHTML = '';
+  condicoes.forEach((c, i) => {
+    const div = document.createElement('div');
+    div.className = 'cond-row';
+    div.innerHTML = `
+      <input class="form-input" value="${c.nome}" onchange="condicoes[${i}].nome=this.value;syncCondicoes()">
+      <select class="form-input" onchange="condicoes[${i}].forca=this.value;syncCondicoes()">
+        ${['fraca','media','forte','extrema'].map(f => `<option value="${f}" ${c.forca===f?'selected':''}>${f.charAt(0).toUpperCase()+f.slice(1)}</option>`).join('')}
+      </select>
+      <input class="form-input" value="${c.alvo || 'Uma criatura'}" onchange="condicoes[${i}].alvo=this.value;syncCondicoes()" placeholder="Alvo">
+      <button type="button" class="btn btn-xs btn-danger" onclick="removeCondicao(${i})">×</button>
+    `;
+    list.appendChild(div);
+  });
+  syncCondicoes();
+}
+
+function addCondicao() {
+  condicoes.push({nome: '', forca: 'fraca', alvo: 'Uma criatura'});
+  renderCondicoes();
+}
+
+function removeCondicao(i) {
+  condicoes.splice(i, 1);
+  renderCondicoes();
+}
+
+function syncCondicoes() {
+  document.getElementById('condicoes_json').value = JSON.stringify(condicoes);
+}
+
+// ── Liberações Builder ──
+function renderLiberacoes() {
+  const list = document.getElementById('liberacoes-list');
+  list.innerHTML = '';
+  liberacoes.forEach((lib, i) => {
+    const div = document.createElement('div');
+    div.className = 'lib-builder-row';
+    div.innerHTML = `
+      <div class="form-row-2" style="gap:.4rem">
+        <input class="form-input" placeholder="Custo PE" type="number" value="${lib.custo_pe || ''}"
+               onchange="liberacoes[${i}].custo_pe=this.value;syncLiberacoes()">
+        <button type="button" class="btn btn-xs btn-danger" onclick="removeLiberacao(${i})">×</button>
+      </div>
+      <textarea class="form-input form-textarea" rows="2" placeholder="Descrição do efeito da Liberação Máxima"
+                onchange="liberacoes[${i}].descricao=this.value;syncLiberacoes()">${lib.descricao || ''}</textarea>
+    `;
+    list.appendChild(div);
+  });
+  syncLiberacoes();
+}
+
+function addLiberacao() {
+  liberacoes.push({custo_pe: '', descricao: ''});
+  renderLiberacoes();
+}
+
+function removeLiberacao(i) {
+  liberacoes.splice(i, 1);
+  renderLiberacoes();
+}
+
+function syncLiberacoes() {
+  document.getElementById('liberacoes_json').value = JSON.stringify(liberacoes);
+}
+
+// Init
+renderCondicoes();
+renderLiberacoes();
+atualizarReferencias();
+</script>
+
+<style>
+.form-layout{display:grid;grid-template-columns:1fr 380px;gap:1.5rem;align-items:start;margin-top:1rem}
+.ref-col{position:relative}
+.sticky-ref{position:sticky;top:1rem}
+.ref-nivel-title{font-size:1rem;font-weight:700;margin-bottom:.8rem;color:var(--accent)}
+.ref-stat{display:flex;justify-content:space-between;padding:.4rem 0;border-bottom:1px solid var(--border);font-size:.88rem}
+.ref-val{font-weight:700;color:var(--accent-light)}
+.ref-placeholder{color:var(--text-muted);font-style:italic;font-size:.88rem}
+.ref-section{background:var(--bg-input) !important}
+.cond-row-header{display:grid;grid-template-columns:1fr 100px 120px 30px;gap:.4rem;font-size:.72rem;color:var(--text-muted);margin-bottom:.3rem;padding:0 .2rem}
+.cond-row{display:grid;grid-template-columns:1fr 100px 120px 30px;gap:.4rem;margin-bottom:.4rem;align-items:center}
+.cond-chip{display:inline-block;background:var(--bg-input);border:1px solid var(--border);border-radius:4px;padding:.1rem .4rem;font-size:.75rem;margin:.1rem;color:var(--text-dim)}
+.lib-custo-ref{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.8rem}
+.lib-ref-item{background:var(--bg-input);border:1px solid var(--border);padding:.3rem .6rem;border-radius:6px;font-size:.8rem;display:flex;flex-direction:column;align-items:center;gap:.1rem}
+.lib-ref-item span:first-child{font-size:.65rem;color:var(--text-muted)}
+.lib-ref-item span:last-child{font-weight:700;color:var(--accent-light)}
+.lib-builder-row{background:var(--bg-input);border:1px solid var(--border);border-radius:8px;padding:.8rem;margin-bottom:.5rem}
+.ref-rules p{font-size:.82rem;margin:.3rem 0;color:var(--text-dim)}
+.forca-fraca{color:#86efac}
+.forca-media{color:#93c5fd}
+.forca-forte{color:#fca5a5}
+.forca-extrema{color:#e879f9}
+@media(max-width:800px){.form-layout{grid-template-columns:1fr}.sticky-ref{position:static}}
+</style>
+{% endblock %}

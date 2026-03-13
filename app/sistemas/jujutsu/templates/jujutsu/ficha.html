@@ -1,0 +1,883 @@
+{% extends "base.html" %}
+{% block title %}{{ dados.nome }} – Ficha{% endblock %}
+
+{% block content %}
+<div class="ficha-container">
+
+  <!-- Header da ficha -->
+  <div class="ficha-header">
+    <div class="ficha-avatar-area">
+      <div class="ficha-avatar-big">{{ dados.nome[0].upper() if dados.nome else '?' }}</div>
+    </div>
+    <div class="ficha-title-area">
+      <h1 class="ficha-nome">{{ dados.nome }}</h1>
+      <p class="ficha-jogador">{{ dados.jogador or 'Sem jogador' }}</p>
+      <div class="ficha-tags">
+        <span class="badge badge-grau badge-lg">{{ dados.calculado.grau }}</span>
+        <span class="badge badge-spec badge-lg">{{ spec.get('nome', '?') }}</span>
+        <span class="badge badge-origem badge-lg">{{ origem.get('nome', '?') }}</span>
+        <span class="badge badge-nivel badge-lg">Nível {{ dados.nivel }}</span>
+      </div>
+    </div>
+    <div class="ficha-actions">
+      <a href="{{ url_for('jujutsu.editar_personagem', pid=pid) }}" class="btn btn-secondary">✏️ Editar</a>
+      <button onclick="abrirLevelUp()" class="btn btn-primary" id="btn-levelup"
+              {% if dados.nivel >= 20 %}disabled{% endif %}>
+        ⬆ Subir Nível
+      </button>
+      <form method="POST" action="{{ url_for('jujutsu.deletar_personagem', pid=pid) }}"
+            onsubmit="return confirm('Deletar este personagem permanentemente?')">
+        <button type="submit" class="btn btn-danger btn-sm">🗑️</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- XP Bar -->
+  <div class="xp-bar-section">
+    <div class="xp-info">
+      <span>XP: <strong id="xp-atual">{{ dados.xp or 0 }}</strong></span>
+      {% if dados.calculado.xp_proximo %}
+      <span>Próximo nível: <strong>{{ dados.calculado.xp_proximo }}</strong></span>
+      {% else %}
+      <span class="text-success">✓ Nível Máximo!</span>
+      {% endif %}
+    </div>
+    {% if dados.calculado.xp_proximo %}
+    <div class="xp-bar">
+      {% set xp_frac = [(dados.xp or 0) - dados.calculado.xp_atual_nivel, 0] | max %}
+      {% set xp_needed = dados.calculado.xp_proximo - dados.calculado.xp_atual_nivel %}
+      {% set pct = [(xp_frac / xp_needed * 100), 100] | min if xp_needed > 0 else 0 %}
+      <div class="xp-fill" style="width: {{ pct }}%"></div>
+    </div>
+    <div class="xp-controls">
+      <input type="number" id="xp-add" class="form-input small-input" placeholder="Adicionar XP" min="0">
+      <button onclick="adicionarXP()" class="btn btn-sm btn-secondary">+ XP</button>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Conteúdo principal -->
+  <div class="ficha-body">
+    <!-- Coluna esquerda -->
+    <div class="ficha-col-left">
+
+      <!-- Atributos -->
+      <div class="ficha-card">
+        <div class="ficha-card-title">⚔️ Atributos</div>
+        <div class="atrib-display-grid">
+          {% set atrib_map = [
+            ('forca', 'Força', dados.calculado.mod_forca),
+            ('destreza', 'Destreza', dados.calculado.mod_destreza),
+            ('constituicao', 'Constituição', dados.calculado.mod_constituicao),
+            ('inteligencia', 'Inteligência', dados.calculado.mod_inteligencia),
+            ('sabedoria', 'Sabedoria', dados.calculado.mod_sabedoria),
+            ('presenca', 'Presença', dados.calculado.mod_presenca),
+          ] %}
+          {% for attr, label, mod in atrib_map %}
+          <div class="atrib-display" id="atrib-{{ attr }}">
+            <div class="atrib-display-label">{{ label }}</div>
+            <div class="atrib-display-val">{{ dados.atributos.get(attr, 10) }}</div>
+            <div class="atrib-display-mod {{ 'pos' if mod >= 0 else 'neg' }}">
+              {{ '+' if mod >= 0 else '' }}{{ mod }}
+            </div>
+            {% if dados.pontos_atributo_disponivel and dados.pontos_atributo_disponivel > 0 %}
+            <button type="button" class="btn-atrib-up"
+                    onclick="distribuirAtributo('{{ attr }}')">+</button>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        {% if dados.pontos_atributo_disponivel and dados.pontos_atributo_disponivel > 0 %}
+        <div class="pontos-atrib-aviso">
+          ⚡ <strong>{{ dados.pontos_atributo_disponivel }}</strong> ponto(s) de atributo disponível(is)
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Valores Derivados -->
+      <div class="ficha-card">
+        <div class="ficha-card-title">📊 Valores de Combate</div>
+        <div class="valores-combat-grid">
+          <div class="valor-combat pv-box">
+            <div class="valor-combat-label">Pontos de Vida</div>
+            <div class="valor-combat-bar">
+              <div class="pv-bar-fill" id="pv-bar"
+                   style="width: {{ [(dados.pv_atual or dados.calculado.pv_max) / dados.calculado.pv_max * 100, 100] | min }}%"></div>
+            </div>
+            <div class="valor-combat-nums">
+              <span class="pv-atual clickable" onclick="editarPV()" id="pv-atual-display"
+                    title="Clique para editar">{{ dados.pv_atual or dados.calculado.pv_max }}</span>
+              <span class="pv-sep">/</span>
+              <span class="pv-max" id="pv-max-display">{{ dados.calculado.pv_max }}</span>
+            </div>
+            <div class="pv-quick">
+              <button onclick="alterarPV(-1)" class="btn-pv btn-pv-down">−1</button>
+              <button onclick="alterarPV(-5)" class="btn-pv btn-pv-down">−5</button>
+              <button onclick="alterarPV(1)" class="btn-pv btn-pv-up">+1</button>
+              <button onclick="alterarPV(5)" class="btn-pv btn-pv-up">+5</button>
+              <button onclick="curarTotal()" class="btn-pv btn-pv-full">✓ Curar</button>
+            </div>
+          </div>
+
+          <div class="valor-combat pe-box">
+            <div class="valor-combat-label">{{ dados.calculado.pe_label }}</div>
+            <div class="valor-combat-bar">
+              <div class="pe-bar-fill" id="pe-bar"
+                   style="width: {{ [(dados.pe_atual or dados.calculado.pe_max) / dados.calculado.pe_max * 100, 100] | min if dados.calculado.pe_max > 0 else 0 }}%"></div>
+            </div>
+            <div class="valor-combat-nums">
+              <span class="pe-atual clickable" onclick="editarPE()" id="pe-atual-display"
+                    title="Clique para editar">{{ dados.pe_atual or dados.calculado.pe_max }}</span>
+              <span class="pv-sep">/</span>
+              <span class="pe-max" id="pe-max-display">{{ dados.calculado.pe_max }}</span>
+            </div>
+            <div class="pv-quick">
+              <button onclick="alterarPE(-1)" class="btn-pv btn-pv-down">−1</button>
+              <button onclick="alterarPE(-2)" class="btn-pv btn-pv-down">−2</button>
+              <button onclick="alterarPE(1)" class="btn-pv btn-pv-up">+1</button>
+              <button onclick="alterarPE(2)" class="btn-pv btn-pv-up">+2</button>
+              <button onclick="restaurarPE()" class="btn-pv btn-pv-full">✓ Restaurar</button>
+            </div>
+          </div>
+
+          {% set stats = [
+            ('Defesa', dados.calculado.defesa, None),
+            ('Iniciativa', ('+' if dados.calculado.iniciativa >= 0 else '') ~ dados.calculado.iniciativa, None),
+            ('Atenção', dados.calculado.atencao, None),
+            ('Deslocamento', dados.calculado.deslocamento ~ 'm', None),
+            ('Integridade da Alma', dados.calculado.integridade_alma, None),
+            ('Bônus de Treinamento', '+' ~ dados.calculado.bonus_treinamento, None),
+          ] %}
+          {% for label, val, _ in stats %}
+          <div class="stat-box">
+            <div class="stat-label">{{ label }}</div>
+            <div class="stat-val">{{ val }}</div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Perícias -->
+      <div class="ficha-card">
+        <div class="ficha-card-title">📚 Perícias</div>
+        <div class="pericias-full-grid">
+          {% for nome, pc in pericias_calc.items() %}
+          {% set sinal = '+' if pc.total >= 0 else '' %}
+          <div class="pf-row {% if pc.treinamento %}pf-row--treinada{% endif %}">
+            <span class="pf-attr">{{ attr_abrev[pc.attr] }}</span>
+            <span class="pf-nome">{{ nome }}{% if pc.requer_treino %} <span class="badge-treino">*T</span>{% endif %}</span>
+            <span class="pf-nivel">
+              {% if pc.treinamento == 'mestre' %}<span class="pf-badge pf-mestre">Mestre</span>
+              {% elif pc.treinamento == 'treinado' %}<span class="pf-badge pf-treinado">Trei.</span>
+              {% else %}<span class="pf-badge pf-sem">—</span>{% endif %}
+            </span>
+            <span class="pf-mod">{{ sinal }}{{ pc.total }}</span>
+            <!-- Tooltip de breakdown -->
+            <div class="pf-tooltip">
+              <div class="pf-tt-titulo">{{ nome }}</div>
+              <div class="pf-tt-linha">
+                <span>Mod. {{ attr_abrev[pc.attr] }}</span>
+                <span>{{ '+' if pc.base_mod >= 0 else '' }}{{ pc.base_mod }}</span>
+              </div>
+              {% if pc.treinamento %}
+              <div class="pf-tt-linha">
+                {% if pc.treinamento == 'mestre' %}
+                <span>Mestre (BT + BT/2)</span>
+                {% else %}
+                <span>Treinado (BT)</span>
+                {% endif %}
+                <span>+{{ pc.train_bonus }}</span>
+              </div>
+              {% endif %}
+              {% for e in pc.especiais %}
+              <div class="pf-tt-linha {% if e.valor < 0 %}pf-tt-neg{% else %}pf-tt-pos{% endif %}">
+                <span>{{ e.fonte }}</span>
+                <span>{{ '+' if e.valor >= 0 else '' }}{{ e.valor }}</span>
+              </div>
+              {% endfor %}
+              <div class="pf-tt-total">
+                <span>Total</span>
+                <span>{{ '+' if pc.total >= 0 else '' }}{{ pc.total }}</span>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Coluna direita -->
+    <div class="ficha-col-right">
+
+      <!-- Aspectos Pessoais -->
+      <div class="ficha-card">
+        <div class="ficha-card-title">🧠 Aspectos Pessoais</div>
+        <div class="aspectos-grid">
+          <div class="aspecto-item">
+            <div class="aspecto-label">Técnica</div>
+            <div class="aspecto-val">{{ dados.tecnica or '—' }}</div>
+          </div>
+          <div class="aspecto-item">
+            <div class="aspecto-label">Domínio Inato</div>
+            <div class="aspecto-val">{{ dados.dominio_inato or '—' }}</div>
+          </div>
+          <div class="aspecto-item">
+            <div class="aspecto-label">Traços</div>
+            <div class="aspecto-val">{{ dados.tracos or '—' }}</div>
+          </div>
+          <div class="aspecto-item">
+            <div class="aspecto-label">Ideais</div>
+            <div class="aspecto-val">{{ dados.ideais or '—' }}</div>
+          </div>
+          <div class="aspecto-item">
+            <div class="aspecto-label">Ligações</div>
+            <div class="aspecto-val">{{ dados.ligacoes or '—' }}</div>
+          </div>
+          <div class="aspecto-item">
+            <div class="aspecto-label">Complicações</div>
+            <div class="aspecto-val">{{ dados.complicacoes or '—' }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Habilidades -->
+      <div class="ficha-card">
+        <div class="ficha-card-title">⚡ Habilidades</div>
+        <div class="habs-ficha-lista">
+          {% for hab in spec.get('habilidades_base', []) %}
+          <div class="hab-ficha-item">
+            <div class="hab-ficha-nome">{{ hab.nome }}
+              <span class="hab-level-badge">Nível {{ hab.nivel }}</span>
+            </div>
+            <div class="hab-ficha-desc">{{ hab.desc }}</div>
+          </div>
+          {% endfor %}
+
+          {% for nivel_req, lista in spec.get('habilidades_nivel', {}).items() %}
+          {% if dados.nivel >= nivel_req | int %}
+          {% for hab in lista %}
+          <div class="hab-ficha-item desbloqueada">
+            <div class="hab-ficha-nome">{{ hab.split('–')[0] if '–' in hab else hab }}
+              <span class="hab-level-badge">Nível {{ nivel_req }}</span>
+            </div>
+            {% if '–' in hab %}
+            <div class="hab-ficha-desc">{{ hab.split('–', 1)[1] }}</div>
+            {% endif %}
+          </div>
+          {% endfor %}
+          {% endif %}
+          {% endfor %}
+        </div>
+
+        <!-- Próximas habilidades -->
+        {% set prox_habs = [] %}
+        {% for nivel_req, lista in spec.get('habilidades_nivel', {}).items() %}
+        {% if dados.nivel < nivel_req | int %}
+        {% set _ = prox_habs.append((nivel_req, lista)) %}
+        {% endif %}
+        {% endfor %}
+        {% if prox_habs %}
+        <div class="proximas-habs">
+          <div class="proximas-title">🔒 Próximas habilidades</div>
+          {% for nivel_req, lista in prox_habs[:3] %}
+          {% for hab in lista %}
+          <div class="hab-locked">
+            <span class="hab-nivel-lock">Nível {{ nivel_req }}</span>
+            <span>{{ hab.split('–')[0] if '–' in hab else hab }}</span>
+          </div>
+          {% endfor %}
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Talentos/Habilidades -->
+      <div class="ficha-card">
+        <div class="ficha-card-title">🌟 Talentos/Habilidades</div>
+        <div id="feiticos-lista">
+          {% if dados.feiticos %}
+            {% for f in dados.feiticos %}
+            {% if f is mapping %}
+            {% set fname = f.nome %}{% set fdesc = f.desc %}
+            {% else %}
+            {% set fname = f %}{% set fdesc = '' %}
+            {% endif %}
+            {% if fname.strip() %}
+            <div class="feitico-card" data-idx="{{ loop.index0 }}">
+              <div class="feitico-header">
+                <span class="feitico-nome">{{ fname }}</span>
+                <div class="feitico-btns">
+                  <button type="button" class="btn-icon" onclick="editarFeitico({{ loop.index0 }})">✏️</button>
+                  <button type="button" class="btn-icon btn-danger-icon" onclick="deletarFeitico({{ loop.index0 }})">🗑</button>
+                </div>
+              </div>
+              {% if fdesc %}<div class="feitico-desc">{{ fdesc }}</div>{% endif %}
+            </div>
+            {% endif %}
+            {% endfor %}
+          {% else %}
+          <p class="text-muted" id="feiticos-empty">Nenhum talento registrado.</p>
+          {% endif %}
+        </div>
+        <div class="feitico-add-form" id="feitico-add-row" style="display:none">
+          <div class="feitico-add-fields">
+            <input type="text" id="feitico-nome-input" class="form-input feitico-add-input"
+                   placeholder="Nome da habilidade..."
+                   onkeydown="if(event.key==='Escape'){fecharFeiticoForm();}">
+            <input type="text" id="feitico-desc-input" class="form-input feitico-add-input"
+                   placeholder="Efeito..."
+                   onkeydown="if(event.key==='Enter'){event.preventDefault();salvarFeitico();}else if(event.key==='Escape'){fecharFeiticoForm();}">
+          </div>
+          <button type="button" class="btn-feitico-check" onclick="salvarFeitico()" title="Confirmar">✓</button>
+        </div>
+        <button type="button" class="btn-feitico-novo" id="btn-add-feitico" onclick="toggleFeiticoRow()">＋</button>
+      </div>
+
+      <!-- Equipamento -->
+      <div class="ficha-card">
+        <div class="ficha-card-title">🎒 Equipamento</div>
+        {% macro arma_card(nome) %}
+          {% set a = armas_dados.get(nome) or escudos_dados.get(nome) %}
+          {% if a %}
+          <div class="equip-arma-card">
+            <div class="equip-arma-nome">⚔️ {{ nome }}</div>
+            <div class="equip-arma-row">
+              {% if a.get('dano') %}
+              <div class="equip-arma-stat"><span class="equip-stat-lbl">Dano</span><span class="equip-stat-val equip-dano">{{ a.dano }}</span></div>
+              <div class="equip-arma-stat"><span class="equip-stat-lbl">Tipo</span><span class="equip-stat-val">{{ a.tipo_dano }}</span></div>
+              <div class="equip-arma-stat"><span class="equip-stat-lbl">Atributo</span><span class="equip-stat-val">{{ a.atributo }}</span></div>
+              <div class="equip-arma-stat"><span class="equip-stat-lbl">Crítico</span><span class="equip-stat-val">{{ a.critico }}+</span></div>
+              {% endif %}
+              {% if a.get('rd') %}
+              <div class="equip-arma-stat"><span class="equip-stat-lbl">RD</span><span class="equip-stat-val">{{ a.rd }}</span></div>
+              <div class="equip-arma-stat"><span class="equip-stat-lbl">Dano Escudo</span><span class="equip-stat-val">{{ a.dano_escudo }}</span></div>
+              {% endif %}
+            </div>
+            {% if a.get('alcance') %}<div class="equip-arma-alcance">📏 {{ a.alcance }}</div>{% endif %}
+            {% if a.get('propriedades') %}
+            <div class="equip-arma-props">{% for p in a.propriedades %}<span class="equip-prop">{{ p }}</span>{% endfor %}</div>
+            {% endif %}
+            {% if a.get('efeito_critico') %}<div class="equip-arma-critico">⚡ {{ a.efeito_critico }}</div>{% endif %}
+            {% if a.get('obs') %}<div class="equip-arma-obs">{{ a.obs }}</div>{% endif %}
+          </div>
+          {% else %}
+          <div class="equip-ficha-item">⚔️ {{ nome }}</div>
+          {% endif %}
+        {% endmacro %}
+        <div class="equip-ficha-lista">
+          {% if dados.arma1 %}{{ arma_card(dados.arma1) }}{% endif %}
+          {% if dados.arma2 %}{{ arma_card(dados.arma2) }}{% endif %}
+          {% if dados.uniforme %}
+          {% set uni = uniformes | selectattr('nome', 'equalto', dados.uniforme) | first | default({}) %}
+          <div class="equip-arma-card">
+            <div class="equip-arma-nome">🥋 {{ dados.uniforme }}</div>
+            <div class="equip-arma-row">
+              <div class="equip-arma-stat">
+                <span class="equip-stat-lbl">DEF Total</span>
+                <span class="equip-stat-val text-glow">{{ dados.calculado.defesa }}</span>
+              </div>
+              {% if uni.bonus_defesa is defined and uni.bonus_defesa > 0 %}
+              <div class="equip-arma-stat">
+                <span class="equip-stat-lbl">Bônus DEF</span>
+                <span class="equip-stat-val">+{{ uni.bonus_defesa }}</span>
+              </div>
+              {% endif %}
+              {% if dados.calculado.penalidade_uniforme and dados.calculado.penalidade_uniforme != 0 %}
+              <div class="equip-arma-stat">
+                <span class="equip-stat-lbl">Pen. DES</span>
+                <span class="equip-stat-val equip-uni-neg">{{ dados.calculado.penalidade_uniforme }}</span>
+              </div>
+              {% endif %}
+            </div>
+            {% if dados.calculado.bonus_sob_medida %}
+            <div class="equip-arma-obs">✨ +2 em Acrobacia e Furtividade</div>
+            {% endif %}
+          </div>
+          {% endif %}
+          {% if dados.kit %}
+          {% set kit_info = kits.get(dados.kit, {}) %}
+          <div class="equip-arma-card" id="kit-accordion">
+            <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="toggleKitAccordion()">
+              <div class="equip-arma-nome" style="margin-bottom:0">{{ kit_info.icone if kit_info.icone else '🎒' }} {{ dados.kit }}</div>
+              <div style="display:flex; align-items:center; gap:.4rem;">
+                <span style="font-size:.7rem; background:#1e1b4b; color:#a5b4fc; border-radius:99px; padding:.1rem .4rem;">{{ kit_info.tipo_item }}</span>
+                <span id="kit-acc-arrow" style="font-size:.8rem; color:var(--text-muted)">▸</span>
+              </div>
+            </div>
+            <div id="kit-accordion-body" style="display:none; margin-top:.6rem;">
+              <div class="equip-arma-obs" style="margin-bottom:.5rem;">Ofício: <strong>{{ kit_info.oficio }}</strong></div>
+              <p style="font-size:.8rem; color:var(--text-dim); line-height:1.5; margin-bottom:.5rem;">{{ kit_info.desc_longa }}</p>
+              {% if kit_info.capacidades %}
+              <div class="kit-acc-label">⚙️ O que você pode fazer</div>
+              <ul class="kit-acc-lista">
+                {% for cap in kit_info.capacidades %}<li>{{ cap }}</li>{% endfor %}
+              </ul>
+              {% endif %}
+              {% if kit_info.itens_criados %}
+              <div class="kit-acc-label" style="margin-top:.6rem">📦 Itens que pode criar</div>
+              <div class="kit-acc-itens">
+                {% for item in kit_info.itens_criados %}
+                <span class="kit-modal-item-tag">{{ item }}</span>
+                {% endfor %}
+              </div>
+              {% endif %}
+            </div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Notas -->
+      {% if dados.notas %}
+      <div class="ficha-card">
+        <div class="ficha-card-title">📝 Notas</div>
+        <div class="notas-text">{{ dados.notas }}</div>
+      </div>
+      {% endif %}
+
+      <!-- Histórico de nível -->
+      {% if dados.historico_nivel %}
+      <div class="ficha-card">
+        <div class="ficha-card-title">📈 Histórico de Progressão</div>
+        <div class="historico-lista">
+          {% for h in dados.historico_nivel | reverse %}
+          <div class="historico-item">
+            <span class="historico-nivel">Nível {{ h.para }}</span>
+            <span class="historico-ganho">+{{ h.ganho_pv }} PV</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Invocações (apenas Controlador) -->
+  {% if dados.get('especializacao') == 'controlador' %}
+  {% set invs = dados.get('invocacoes', []) %}
+  <div class="ficha-card" style="margin-top:1.5rem">
+    <div class="ficha-card-title" style="display:flex;align-items:center;justify-content:space-between">
+      <span>🐉 Invocações
+        {% if invs %}<span class="badge" style="background:var(--accent);margin-left:0.5rem">{{ invs|length }}</span>{% endif %}
+      </span>
+      <a href="{{ url_for('jujutsu.listar_invocacoes', pid=pid) }}" class="btn btn-sm btn-secondary">Gerenciar</a>
+    </div>
+    {% if invs %}
+    <div class="invs-preview-grid">
+      {% for inv_data in invs[:4] %}
+      {% set grau_nome = {'4':'4° Grau','3':'3° Grau','2':'2° Grau','1':'1° Grau','especial':'Gr. Especial'} %}
+      {% set tipo_nome = {'shikigami':'Shikigami','marionete':'Marionete','maldicao_domada':'Maldição Domada'} %}
+      <div class="inv-preview-card">
+        <div class="inv-preview-nome">{{ inv_data.nome }}</div>
+        <div class="inv-preview-tags">
+          <span class="badge" style="font-size:0.65rem">{{ grau_nome.get(inv_data.grau, inv_data.grau) }}</span>
+          <span class="badge badge-spec" style="font-size:0.65rem">{{ tipo_nome.get(inv_data.tipo, inv_data.tipo) }}</span>
+        </div>
+        {% if inv_data.calculado is defined %}
+        <div class="inv-preview-stats">
+          PV {{ inv_data.get('pv_atual', inv_data.calculado.pv_max) }}/{{ inv_data.calculado.pv_max }}
+          · DEF {{ inv_data.calculado.defesa }}
+          · {{ inv_data.calculado.custo_pe_total }} PE
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+      {% if invs|length > 4 %}
+      <div class="inv-preview-card inv-preview-mais">
+        +{{ invs|length - 4 }} mais
+      </div>
+      {% endif %}
+    </div>
+    {% else %}
+    <p class="text-muted" style="font-size:0.9rem">
+      Nenhuma invocação criada.
+      <a href="{{ url_for('jujutsu.criar_invocacao', pid=pid) }}" style="color:var(--accent-light)">Criar primeira</a>
+    </p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- Feitiços (Expansão) -->
+  {% if dados.get('especializacao') != 'restringido' %}
+  {% set tecnicas_list = dados.get('tecnicas', []) %}
+  <div class="ficha-card" style="margin-top:1.5rem">
+    <div class="ficha-card-title" style="display:flex;align-items:center;justify-content:space-between">
+      <span>⚡ Feitiços
+        {% if tecnicas_list %}<span class="badge" style="background:var(--accent);margin-left:0.5rem">{{ tecnicas_list|length }}</span>{% endif %}
+      </span>
+      <a href="{{ url_for('jujutsu.listar_tecnicas', pid=pid) }}" class="btn btn-sm btn-secondary">Gerenciar</a>
+    </div>
+    {% if tecnicas_list %}
+    <div class="tecnicas-preview-grid">
+      {% for tec in tecnicas_list[:6] %}
+      <div class="tec-preview-card">
+        <div style="display:flex;gap:.3rem;align-items:center">
+          <span class="badge" style="font-size:.65rem;background:#1e1b4b">Nv{{ tec.nivel }}</span>
+          <span class="tec-preview-nome">{{ tec.nome }}</span>
+        </div>
+        <div style="font-size:.75rem;color:var(--muted)">
+          {{ tec.conjuracao|replace('_',' ')|title if tec.conjuracao else '' }}
+          {% if tec.custo_pe %} · {{ tec.custo_pe }} PE{% endif %}
+        </div>
+      </div>
+      {% endfor %}
+      {% if tecnicas_list|length > 6 %}
+      <div class="tec-preview-card" style="color:var(--muted);display:flex;align-items:center;justify-content:center">
+        +{{ tecnicas_list|length - 6 }} mais
+      </div>
+      {% endif %}
+    </div>
+    {% else %}
+    <p class="text-muted" style="font-size:0.9rem">
+      Nenhum feitiço cadastrado.
+      <a href="{{ url_for('jujutsu.criar_tecnica', pid=pid) }}" style="color:var(--accent-light)">Criar primeiro</a>
+    </p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- Aptidões e Domínio -->
+  {% if dados.get('especializacao') != 'restringido' %}
+  {% set aptidoes_list = dados.get('aptidoes', []) %}
+  {% set dominio_dados = dados.get('dominio') %}
+  <div class="ficha-card" style="margin-top:1.5rem">
+    <div class="ficha-card-title" style="display:flex;align-items:center;justify-content:space-between">
+      <span>🌀 Aptidões & Domínio</span>
+      <div style="display:flex;gap:.4rem">
+        <a href="{{ url_for('jujutsu.gerenciar_aptidoes', pid=pid) }}" class="btn btn-sm btn-secondary">Aptidões</a>
+        <a href="{{ url_for('jujutsu.gerenciar_dominio', pid=pid) }}" class="btn btn-sm btn-secondary">Domínio</a>
+      </div>
+    </div>
+    {% if aptidoes_list %}
+    <div style="display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.8rem">
+      {% for apt_id in aptidoes_list %}
+      <span class="badge" style="font-size:.72rem;background:var(--surface-2);color:var(--text)">{{ apt_id|replace('_',' ')|title }}</span>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% if dominio_dados %}
+    <div class="dominio-preview">
+      <span style="font-size:.8rem;color:var(--accent)">🌐 {{ dominio_dados.nome or 'Expansão de Domínio' }}</span>
+      {% if dominio_dados.tipo %}
+      <span class="badge" style="font-size:.65rem;margin-left:.4rem">{{ dominio_dados.tipo|replace('_',' ')|title }}</span>
+      {% endif %}
+    </div>
+    {% elif not aptidoes_list %}
+    <p class="text-muted" style="font-size:.9rem">
+      Sem aptidões.
+      <a href="{{ url_for('jujutsu.gerenciar_aptidoes', pid=pid) }}" style="color:var(--accent-light)">Adicionar</a>
+    </p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+</div>
+
+<!-- Modal de Subir de Nível -->
+<div class="modal-overlay" id="modal-levelup" style="display:none">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>⬆ Subir para o Nível {{ dados.nivel + 1 }}</h3>
+      <button onclick="fecharModal()" class="modal-close">×</button>
+    </div>
+    <div class="modal-body">
+      <p>Você está prestes a subir do <strong>nível {{ dados.nivel }}</strong> para o <strong>nível {{ dados.nivel + 1 }}</strong>.</p>
+
+      <div class="levelup-opcoes">
+        <h4>Como aumentar os Pontos de Vida?</h4>
+        {% set spec = spec %}
+        <div class="pv-metodo-grid">
+          <label class="pv-metodo-option">
+            <input type="radio" name="pv_metodo" value="fixo" checked>
+            <div class="pv-metodo-card">
+              <div class="pv-metodo-nome">Valor Fixo</div>
+              <div class="pv-metodo-val">+{{ spec.pv_fixo_nivel }} + mod CON</div>
+            </div>
+          </label>
+          <label class="pv-metodo-option">
+            <input type="radio" name="pv_metodo" value="rolar">
+            <div class="pv-metodo-card">
+              <div class="pv-metodo-nome">Rolar</div>
+              <div class="pv-metodo-val">1d{{ spec.pv_dado }} + mod CON</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <div id="levelup-resultado" style="display:none" class="levelup-resultado">
+        <!-- Resultado aparece aqui -->
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button onclick="fecharModal()" class="btn btn-ghost">Cancelar</button>
+      <button onclick="confirmarLevelUp()" class="btn btn-primary btn-glow">✨ Confirmar!</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast de notificação -->
+<div class="toast" id="toast"></div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const PID = {{ pid }};
+const URL_ATUALIZAR_PV = "{{ url_for('jujutsu.atualizar_pv', pid=pid) }}";
+const URL_SUBIR_NIVEL = "{{ url_for('jujutsu.subir_nivel', pid=pid) }}";
+const URL_DISTRIBUIR_ATRIBUTO = "{{ url_for('jujutsu.distribuir_atributo', pid=pid) }}";
+const URL_SALVAR_FEITICOS = "{{ url_for('jujutsu.salvar_feiticos', pid=pid) }}";
+let pvAtual = {{ dados.pv_atual or dados.calculado.pv_max }};
+let pvMax = {{ dados.calculado.pv_max }};
+let peAtual = {{ dados.pe_atual or dados.calculado.pe_max }};
+let peMax = {{ dados.calculado.pe_max }};
+let xpAtual = {{ dados.xp or 0 }};
+
+function showToast(msg, tipo = 'success') {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.className = `toast toast-${tipo} show`;
+  setTimeout(() => toast.classList.remove('show'), 3500);
+}
+
+function atualizarBarras() {
+  const pvPct = pvMax > 0 ? Math.min(pvAtual / pvMax * 100, 100) : 0;
+  document.getElementById('pv-bar').style.width = pvPct + '%';
+  document.getElementById('pv-bar').style.background =
+    pvPct > 50 ? 'var(--pv-color)' : pvPct > 25 ? '#f59e0b' : '#ef4444';
+  document.getElementById('pv-atual-display').textContent = pvAtual;
+
+  const pePct = peMax > 0 ? Math.min(peAtual / peMax * 100, 100) : 0;
+  document.getElementById('pe-bar').style.width = pePct + '%';
+  document.getElementById('pe-atual-display').textContent = peAtual;
+}
+
+async function salvarPVPE() {
+  await fetch(URL_ATUALIZAR_PV, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({pv_atual: pvAtual, pe_atual: peAtual})
+  });
+  atualizarBarras();
+}
+
+function alterarPV(delta) {
+  pvAtual = Math.max(0, Math.min(pvAtual + delta, pvMax));
+  salvarPVPE();
+}
+
+function alterarPE(delta) {
+  peAtual = Math.max(0, Math.min(peAtual + delta, peMax));
+  salvarPVPE();
+}
+
+function curarTotal() {
+  pvAtual = pvMax;
+  salvarPVPE();
+  showToast('PV restaurado ao máximo!');
+}
+
+function restaurarPE() {
+  peAtual = peMax;
+  salvarPVPE();
+  showToast('PE restaurado!');
+}
+
+function editarPV() {
+  const novo = prompt('Novo valor de PV (0–' + pvMax + '):', pvAtual);
+  if (novo !== null && !isNaN(novo)) {
+    pvAtual = Math.max(0, Math.min(parseInt(novo), pvMax));
+    salvarPVPE();
+  }
+}
+
+function editarPE() {
+  const novo = prompt('Novo valor de PE (0–' + peMax + '):', peAtual);
+  if (novo !== null && !isNaN(novo)) {
+    peAtual = Math.max(0, Math.min(parseInt(novo), peMax));
+    salvarPVPE();
+  }
+}
+
+async function adicionarXP() {
+  const add = parseInt(document.getElementById('xp-add').value) || 0;
+  if (add <= 0) return;
+  xpAtual += add;
+  document.getElementById('xp-atual').textContent = xpAtual;
+  document.getElementById('xp-add').value = '';
+  await fetch(URL_ATUALIZAR_PV, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({xp: xpAtual})
+  });
+  showToast(`+${add} XP adicionado!`);
+}
+
+function abrirLevelUp() {
+  document.getElementById('modal-levelup').style.display = 'flex';
+  document.getElementById('levelup-resultado').style.display = 'none';
+}
+
+function fecharModal() {
+  document.getElementById('modal-levelup').style.display = 'none';
+}
+
+async function confirmarLevelUp() {
+  const metodo = document.querySelector('input[name="pv_metodo"]:checked').value;
+  const resp = await fetch(URL_SUBIR_NIVEL, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({rolar_pv: metodo === 'rolar'})
+  });
+  const data = await resp.json();
+
+  if (data.erro) {
+    showToast(data.erro, 'error');
+    return;
+  }
+
+  pvMax = data.pv_max;
+  peMax = data.pe_max;
+  pvAtual = Math.min(pvAtual + data.ganho_pv, pvMax);
+  peAtual = peMax;
+  atualizarBarras();
+
+  const res = document.getElementById('levelup-resultado');
+  res.style.display = 'block';
+  res.innerHTML = `
+    <div class="levelup-success">
+      <div class="levelup-nível">🎉 Nível ${data.nivel}!</div>
+      <div class="levelup-grau">${data.grau}</div>
+      <div class="levelup-ganhos">
+        <div>+${data.ganho_pv} PV (máx: ${data.pv_max})</div>
+        <div>PE restaurado: ${data.pe_max}</div>
+        <div>Bônus de Treinamento: +${data.bonus_treinamento}</div>
+        ${data.pontos_atributo_disponivel > 0 ? `<div>🎯 ${data.pontos_atributo_disponivel} pontos de atributo disponíveis!</div>` : ''}
+      </div>
+    </div>`;
+
+  showToast(data.mensagem);
+  // Não fecha automaticamente — jogador lê o resultado e fecha manualmente
+  document.getElementById('btn-levelup').disabled = false;
+}
+
+async function distribuirAtributo(attr) {
+  const resp = await fetch(URL_DISTRIBUIR_ATRIBUTO, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({atributo: attr})
+  });
+  const data = await resp.json();
+  if (data.sucesso) {
+    showToast(`${attr} aumentado para ${data.novo_valor} (${data.modificador >= 0 ? '+' : ''}${data.modificador})!`);
+    setTimeout(() => location.reload(), 1000);
+  } else {
+    showToast(data.erro, 'error');
+  }
+}
+
+// Fechar modal ao clicar fora
+document.getElementById('modal-levelup').addEventListener('click', function(e) {
+  if (e.target === this) fecharModal();
+});
+
+atualizarBarras();
+
+// ── Talentos/Habilidades ──
+let feiticosData = {{ (dados.feiticos or []) | tojson }};
+feiticosData = feiticosData.map(f => typeof f === 'string' ? {nome: f, desc: ''} : f);
+
+let editandoIdx = null;
+
+function renderFeiticos() {
+  const lista = document.getElementById('feiticos-lista');
+  if (!lista) return;
+  if (feiticosData.length === 0) {
+    lista.innerHTML = '<p class="text-muted" id="feiticos-empty">Nenhum talento registrado.</p>';
+    return;
+  }
+  lista.innerHTML = feiticosData.map((f, i) => `
+    <div class="feitico-card" data-idx="${i}">
+      <div class="feitico-header">
+        <span class="feitico-nome">${f.nome}</span>
+        <div class="feitico-btns">
+          <button type="button" class="btn-icon" onclick="editarFeitico(${i})">✏️</button>
+          <button type="button" class="btn-icon btn-danger-icon" onclick="deletarFeitico(${i})">🗑</button>
+        </div>
+      </div>
+      ${f.desc ? `<div class="feitico-desc">${f.desc.replace(/\n/g,'<br>')}</div>` : ''}
+    </div>`).join('');
+}
+
+function toggleFeiticoRow() {
+  const row = document.getElementById('feitico-add-row');
+  const btn = document.getElementById('btn-add-feitico');
+  const aberto = row.style.display !== 'none';
+  if (aberto) {
+    fecharFeiticoForm();
+  } else {
+    editandoIdx = null;
+    document.getElementById('feitico-nome-input').value = '';
+    document.getElementById('feitico-desc-input').value = '';
+    row.style.display = 'flex';
+    btn.textContent = '✕';
+    document.getElementById('feitico-nome-input').focus();
+  }
+}
+
+function editarFeitico(idx) {
+  editandoIdx = idx;
+  document.getElementById('feitico-nome-input').value = feiticosData[idx].nome;
+  document.getElementById('feitico-desc-input').value = feiticosData[idx].desc || '';
+  document.getElementById('feitico-add-row').style.display = 'flex';
+  document.getElementById('btn-add-feitico').textContent = '✕';
+  document.getElementById('feitico-nome-input').focus();
+}
+
+function fecharFeiticoForm() {
+  document.getElementById('feitico-add-row').style.display = 'none';
+  document.getElementById('btn-add-feitico').textContent = '＋';
+  editandoIdx = null;
+}
+
+async function salvarFeitico() {
+  const nome = document.getElementById('feitico-nome-input').value.trim();
+  if (!nome) return;
+  const desc = document.getElementById('feitico-desc-input').value.trim();
+  if (editandoIdx === null) {
+    feiticosData.push({nome, desc});
+  } else {
+    feiticosData[editandoIdx] = {nome, desc};
+  }
+  fecharFeiticoForm();
+  renderFeiticos();
+  await persistirFeiticos();
+}
+
+async function deletarFeitico(idx) {
+  feiticosData.splice(idx, 1);
+  renderFeiticos();
+  await persistirFeiticos();
+}
+
+async function persistirFeiticos() {
+  await fetch(URL_SALVAR_FEITICOS, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({feiticos_json: JSON.stringify(feiticosData)})
+  });
+}
+
+</script>
+
+<script>
+function toggleKitAccordion() {
+  const body = document.getElementById('kit-accordion-body');
+  const arrow = document.getElementById('kit-acc-arrow');
+  if (!body) return;
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : 'block';
+  if (arrow) arrow.textContent = open ? '▸' : '▾';
+}
+</script>
+{% endblock %}

@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}D&D 5e – Criar Personagem (Passo 2){% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">⚔️ Criar Personagem – Passo 2: Perícias & Equipamento</h1>
+  <a href="{{ url_for('dnd.criar') }}" class="btn btn-ghost">← Voltar</a>
+</div>
+
+<form action="{{ url_for('dnd.criar_salvar') }}" method="POST" class="wizard-form">
+
+  <!-- Perícias -->
+  <div class="form-section">
+    <h2 class="form-section-title">Perícias — escolha {{ classe.get('qtd_pericias', 2) }} da sua classe</h2>
+    {% set pericias_classe = classe.get('pericias', []) %}
+    <div class="pericias-grid">
+      {% for nome_p, attr in pericias.items() %}
+      <label class="pericia-check {% if nome_p in pericias_classe %}pericia-disponivel{% endif %}">
+        <input type="checkbox" name="pericias" value="{{ nome_p }}"
+               {% if nome_p not in pericias_classe %}disabled{% endif %}>
+        <span class="pericia-nome">{{ nome_p }}</span>
+        <span class="pericia-attr">({{ atributos_labels.get(attr, attr)[:3].upper() }})</span>
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Equipamento -->
+  <div class="form-section">
+    <h2 class="form-section-title">Equipamento Inicial</h2>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Tipo de Armadura</label>
+        <select name="armadura_tipo" class="form-input form-select">
+          <option value="nenhuma">Nenhuma (CA 10 + Des)</option>
+          <option value="leve">Leve (CA 11 + Des)</option>
+          <option value="media">Média (CA 14 + Des máx 2)</option>
+          <option value="pesada">Pesada (CA 18)</option>
+        </select>
+      </div>
+      <div class="form-group" style="justify-content:flex-end">
+        <label class="form-label">
+          <input type="checkbox" name="escudo" value="1" style="margin-right:.4rem">
+          Escudo (+2 CA)
+        </label>
+      </div>
+    </div>
+    <div class="form-group" style="margin-top:.75rem">
+      <label class="form-label">Arma Principal</label>
+      <input type="text" name="arma_principal" class="form-input" placeholder="Ex: Espada Longa (1d8 cortante)">
+    </div>
+  </div>
+
+  <!-- Personalidade -->
+  <div class="form-section">
+    <h2 class="form-section-title">Personalidade</h2>
+    <div class="form-group">
+      <label class="form-label">Traços de Personalidade</label>
+      <textarea name="tracos_personalidade" class="form-input" rows="2" placeholder="Como seu personagem age e se comporta?"></textarea>
+    </div>
+    <div class="form-group" style="margin-top:.75rem">
+      <label class="form-label">Notas & Equipamentos Extras</label>
+      <textarea name="notas" class="form-input" rows="3" placeholder="Anotações livres, equipamentos, objetivos..."></textarea>
+    </div>
+  </div>
+
+  <div class="wizard-footer">
+    <button type="submit" class="btn btn-primary btn-lg">✓ Criar Personagem</button>
+  </div>
+</form>
+
+<style>
+.form-section{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:1.5rem;margin-bottom:1.25rem}
+.form-section-title{font-size:.9rem;font-weight:700;color:var(--accent-light);text-transform:uppercase;letter-spacing:.5px;margin:0 0 1.25rem}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.form-group{display:flex;flex-direction:column;gap:.4rem}
+.form-label{font-size:.82rem;font-weight:600;color:var(--text-muted)}
+.form-input{background:var(--bg-input);border:1px solid var(--border);border-radius:8px;padding:.55rem .75rem;color:var(--text);font-size:.9rem;width:100%}
+.form-select{cursor:pointer}
+.pericias-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.5rem}
+.pericia-check{display:flex;align-items:center;gap:.5rem;padding:.4rem .6rem;border-radius:6px;background:var(--bg-input);border:1px solid var(--border);cursor:pointer;font-size:.82rem;opacity:.4}
+.pericia-disponivel{opacity:1;cursor:pointer}
+.pericia-disponivel:hover{border-color:var(--accent)}
+.pericia-nome{font-weight:600;flex:1}
+.pericia-attr{color:var(--text-muted);font-size:.73rem}
+.wizard-footer{display:flex;justify-content:flex-end;margin-top:1.5rem}
+</style>
+{% endblock %}

@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Old Dragon 2e – Personagens{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">🐉 Old Dragon 2e</h1>
+    <p class="page-sub">Seus personagens de Old Dragon 2ª Edição</p>
+  </div>
+  <a href="{{ url_for('old_dragon.criar') }}" class="btn btn-primary">+ Novo Personagem</a>
+</div>
+
+{% if personagens %}
+<div class="chars-grid">
+  {% for p in personagens %}
+  <a href="{{ url_for('old_dragon.ver_personagem', pid=p.id) }}" class="char-card">
+    <div class="char-card-avatar">{{ p.nome[0].upper() }}</div>
+    <div class="char-card-info">
+      <div class="char-card-nome">{{ p.nome }}</div>
+      <div class="char-card-sub">{{ p.raca }} · {{ p.classe }} · Nv {{ p.nivel }}</div>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+  <p>Nenhum personagem criado ainda.</p>
+  <a href="{{ url_for('old_dragon.criar') }}" class="btn btn-primary">Criar Primeiro Personagem</a>
+</div>
+{% endif %}
+
+<style>
+.chars-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1rem;margin-top:1.5rem}
+.char-card{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:1.25rem;display:flex;align-items:center;gap:1rem;text-decoration:none;color:var(--text);transition:border-color .15s}
+.char-card:hover{border-color:var(--accent)}
+.char-card-avatar{width:44px;height:44px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.1rem;flex-shrink:0}
+.char-card-nome{font-size:.95rem;font-weight:700}
+.char-card-sub{font-size:.78rem;color:var(--text-muted);margin-top:.2rem}
+.empty-state{text-align:center;padding:3rem;color:var(--text-muted)}
+.empty-state .btn{margin-top:1rem}
+</style>
+{% endblock %}

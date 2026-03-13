@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block title %}D&D 5e – Criar Personagem{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">⚔️ Criar Personagem – D&D 5e</h1>
+  <a href="{{ url_for('dnd.index') }}" class="btn btn-ghost">Cancelar</a>
+</div>
+
+<form action="{{ url_for('dnd.criar_passo2') }}" method="POST" class="wizard-form">
+
+  <!-- Identidade -->
+  <div class="form-section">
+    <h2 class="form-section-title">Identidade</h2>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Nome do Personagem *</label>
+        <input type="text" name="nome" class="form-input" required placeholder="Ex: Aldric Pedraforte">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nome do Jogador</label>
+        <input type="text" name="jogador" class="form-input" placeholder="Seu nome">
+      </div>
+    </div>
+    <div class="form-row" style="margin-top:.75rem">
+      <div class="form-group">
+        <label class="form-label">Raça *</label>
+        <select name="raca" class="form-input form-select" id="sel-raca" required>
+          {% for key, r in racas.items() %}
+          <option value="{{ key }}">{{ r.nome }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Classe *</label>
+        <select name="classe" class="form-input form-select" id="sel-classe" required>
+          {% for key, c in classes.items() %}
+          <option value="{{ key }}">{{ c.nome }} (d{{ c.dado_vida }})</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="form-row" style="margin-top:.75rem">
+      <div class="form-group">
+        <label class="form-label">Alinhamento</label>
+        <select name="alinhamento" class="form-input form-select">
+          {% for key, nome in alinhamentos.items() %}
+          <option value="{{ key }}">{{ nome }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Divindade (opcional)</label>
+        <input type="text" name="divindade" class="form-input" placeholder="Para paladinos e clérigos">
+      </div>
+    </div>
+    <div class="form-group" style="margin-top:.75rem">
+      <label class="form-label">Antecedente</label>
+      <input type="text" name="antecedente" class="form-input" placeholder="Ex: Nobre, Soldado, Sábio...">
+    </div>
+  </div>
+
+  <!-- Atributos -->
+  <div class="form-section">
+    <h2 class="form-section-title">Atributos <span style="font-size:.8rem;color:var(--text-muted)">(role 4d6 descartando o menor, ou use compra de pontos)</span></h2>
+    <div class="attrs-grid">
+      {% for attr in atributos %}
+      <div class="attr-block">
+        <label class="attr-label">{{ atributos_labels[attr] }}</label>
+        <input type="number" name="attr_{{ attr }}" value="10" min="1" max="20"
+               class="form-input attr-input" required>
+        <span class="attr-mod" id="mod_{{ attr }}">+0</span>
+      </div>
+      {% endfor %}
+    </div>
+    <div style="margin-top:1rem;display:flex;gap:.5rem">
+      <button type="button" class="btn btn-secondary btn-sm" onclick="rolarTodos()">🎲 Rolar Todos</button>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="resetarAtributos()">↺ Resetar</button>
+    </div>
+  </div>
+
+  <div class="wizard-footer">
+    <button type="submit" class="btn btn-primary btn-lg">Próximo: Perícias & Equipamento →</button>
+  </div>
+</form>
+
+<style>
+.form-section{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:1.5rem;margin-bottom:1.25rem}
+.form-section-title{font-size:.9rem;font-weight:700;color:var(--accent-light);text-transform:uppercase;letter-spacing:.5px;margin:0 0 1.25rem}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.form-group{display:flex;flex-direction:column;gap:.4rem}
+.form-label{font-size:.82rem;font-weight:600;color:var(--text-muted)}
+.form-input{background:var(--bg-input);border:1px solid var(--border);border-radius:8px;padding:.55rem .75rem;color:var(--text);font-size:.9rem;width:100%}
+.form-select{cursor:pointer}
+.attrs-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:1rem}
+.attr-block{display:flex;flex-direction:column;gap:.3rem;align-items:center;background:var(--bg-input);border:1px solid var(--border);border-radius:10px;padding:.75rem}
+.attr-label{font-size:.7rem;font-weight:700;text-transform:uppercase;color:var(--text-muted);letter-spacing:.4px}
+.attr-input{width:70px;text-align:center;font-size:1.2rem;font-weight:700;border-radius:6px}
+.attr-mod{font-size:.85rem;color:var(--accent-light);font-weight:600}
+.wizard-footer{display:flex;justify-content:flex-end;margin-top:1.5rem}
+</style>
+{% endblock %}
+{% block scripts %}
+<script>
+const atributos = {{ atributos | tojson }};
+
+function calcMod(v){ return Math.floor((v-10)/2); }
+function fmtMod(m){ return (m>=0?'+':'')+m; }
+
+function atualizarMods(){
+  atributos.forEach(a => {
+    const inp = document.querySelector(`[name="attr_${a}"]`);
+    const span = document.getElementById(`mod_${a}`);
+    if(inp && span){ span.textContent = fmtMod(calcMod(parseInt(inp.value)||10)); }
+  });
+}
+
+function rolarAtributo(){
+  const rolls = Array.from({length:4}, ()=>Math.ceil(Math.random()*6));
+  rolls.sort((a,b)=>a-b);
+  return rolls.slice(1).reduce((s,v)=>s+v, 0);
+}
+
+function rolarTodos(){
+  atributos.forEach(a => {
+    const inp = document.querySelector(`[name="attr_${a}"]`);
+    if(inp){ inp.value = rolarAtributo(); }
+  });
+  atualizarMods();
+}
+
+function resetarAtributos(){
+  atributos.forEach(a => {
+    const inp = document.querySelector(`[name="attr_${a}"]`);
+    if(inp){ inp.value = 10; }
+  });
+  atualizarMods();
+}
+
+document.querySelectorAll('.attr-input').forEach(i=>i.addEventListener('input', atualizarMods));
+atualizarMods();
+</script>
+{% endblock %}

@@ -3,7 +3,8 @@
 // Previne double-submit em forms
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('form').forEach(form => {
-    form.addEventListener('submit', function () {
+    form.addEventListener('submit', function (e) {
+      if (e.defaultPrevented) return;
       const btn = this.querySelector('button[type="submit"]');
       if (btn && !btn.disabled) {
         btn.disabled = true;

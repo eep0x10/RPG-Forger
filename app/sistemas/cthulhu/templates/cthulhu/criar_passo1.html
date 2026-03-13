@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block title %}Call of Cthulhu – Criar Investigador{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">🐙 Criar Investigador – Call of Cthulhu 7e</h1>
+  <a href="{{ url_for('cthulhu.index') }}" class="btn btn-ghost">Cancelar</a>
+</div>
+
+<form action="{{ url_for('cthulhu.criar_passo2') }}" method="POST" class="wizard-form">
+
+  <!-- Identidade -->
+  <div class="form-section">
+    <h2 class="form-section-title">Identidade</h2>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Nome *</label>
+        <input type="text" name="nome" class="form-input" required placeholder="Ex: Arthur Blackwood">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nome do Jogador</label>
+        <input type="text" name="jogador" class="form-input" placeholder="Seu nome">
+      </div>
+    </div>
+    <div class="form-row" style="margin-top:.75rem">
+      <div class="form-group">
+        <label class="form-label">Ocupação *</label>
+        <select name="ocupacao" class="form-input form-select" required>
+          {% for key, oc in ocupacoes.items() %}
+          <option value="{{ key }}">{{ oc.nome }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Era</label>
+        <select name="era" class="form-input form-select">
+          {% for key, e in eras.items() %}
+          <option value="{{ key }}">{{ e.nome }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="form-row" style="margin-top:.75rem">
+      <div class="form-group">
+        <label class="form-label">Idade</label>
+        <input type="number" name="idade" class="form-input" value="25" min="15" max="90">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Sexo</label>
+        <input type="text" name="sexo" class="form-input" placeholder="Opcional">
+      </div>
+    </div>
+    <div class="form-row" style="margin-top:.75rem">
+      <div class="form-group">
+        <label class="form-label">Residência</label>
+        <input type="text" name="residencia" class="form-input" placeholder="Cidade, País">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Naturalidade</label>
+        <input type="text" name="naturalidade" class="form-input" placeholder="Onde nasceu?">
+      </div>
+    </div>
+  </div>
+
+  <!-- Características -->
+  <div class="form-section">
+    <h2 class="form-section-title">Características <span style="font-size:.8rem;color:var(--text-muted)">(rol e multiplique conforme indicado)</span></h2>
+    <div class="attrs-grid">
+      {% for char in caracteristicas %}
+      <div class="attr-block">
+        <label class="attr-label">{{ caracteristicas_labels[char] }}</label>
+        <span class="attr-hint" id="hint_{{ char }}">{{ caracteristicas_rolagem[char] }}</span>
+        <input type="number" name="char_{{ char }}" value="50" min="1" max="99"
+               class="form-input attr-input" id="inp_{{ char }}">
+        <div class="attr-thresh" id="thresh_{{ char }}"></div>
+      </div>
+      {% endfor %}
+    </div>
+    <div style="margin-top:1rem;display:flex;gap:.5rem">
+      <button type="button" class="btn btn-secondary btn-sm" onclick="rolarTodas()">🎲 Rolar Todas</button>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="resetarCaracts()">↺ Resetar</button>
+    </div>
+  </div>
+
+  <div class="wizard-footer">
+    <button type="submit" class="btn btn-primary btn-lg">Próximo: Perícias →</button>
+  </div>
+</form>
+
+<style>
+.form-section{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:1.5rem;margin-bottom:1.25rem}
+.form-section-title{font-size:.9rem;font-weight:700;color:var(--accent-light);text-transform:uppercase;letter-spacing:.5px;margin:0 0 1.25rem}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.form-group{display:flex;flex-direction:column;gap:.4rem}
+.form-label{font-size:.82rem;font-weight:600;color:var(--text-muted)}
+.form-input{background:var(--bg-input);border:1px solid var(--border);border-radius:8px;padding:.55rem .75rem;color:var(--text);font-size:.9rem;width:100%}
+.form-select{cursor:pointer}
+.attrs-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:.75rem}
+.attr-block{display:flex;flex-direction:column;gap:.25rem;align-items:center;background:var(--bg-input);border:1px solid var(--border);border-radius:10px;padding:.75rem}
+.attr-label{font-size:.7rem;font-weight:700;text-transform:uppercase;color:var(--text-muted);letter-spacing:.4px}
+.attr-hint{font-size:.68rem;color:var(--text-muted);font-style:italic}
+.attr-input{width:70px;text-align:center;font-size:1.2rem;font-weight:700;border-radius:6px}
+.attr-thresh{font-size:.65rem;color:var(--text-muted);text-align:center}
+.wizard-footer{display:flex;justify-content:flex-end;margin-top:1.5rem}
+</style>
+{% endblock %}
+{% block scripts %}
+<script>
+const caracts = {{ caracteristicas | tojson }};
+const rolagens = {{ caracteristicas_rolagem | tojson }};
+
+function atualizarThresh(char){
+  const inp = document.getElementById(`inp_${char}`);
+  const div = document.getElementById(`thresh_${char}`);
+  if(!inp || !div) return;
+  const v = parseInt(inp.value) || 50;
+  div.textContent = `½ ${Math.floor(v/2)} · ⅕ ${Math.floor(v/5)}`;
+}
+
+function rolarCaract(char){
+  const formula = rolagens[char] || '3d6×5';
+  // Parse simples: XdY*Z
+  const m = formula.match(/(\d+)d(\d+)[×x\*]?(\d+)?/);
+  if(!m) return 50;
+  const n = parseInt(m[1]), lados = parseInt(m[2]), mult = parseInt(m[3]||1);
+  let soma = 0;
+  for(let i=0;i<n;i++) soma += Math.ceil(Math.random()*lados);
+  return Math.min(99, soma * mult);
+}
+
+function rolarTodas(){
+  caracts.forEach(c => {
+    const inp = document.getElementById(`inp_${c}`);
+    if(inp){ inp.value = rolarCaract(c); atualizarThresh(c); }
+  });
+}
+
+function resetarCaracts(){
+  caracts.forEach(c => {
+    const inp = document.getElementById(`inp_${c}`);
+    if(inp){ inp.value = 50; atualizarThresh(c); }
+  });
+}
+
+caracts.forEach(c => {
+  const inp = document.getElementById(`inp_${c}`);
+  if(inp){ inp.addEventListener('input', ()=>atualizarThresh(c)); atualizarThresh(c); }
+});
+</script>
+{% endblock %}

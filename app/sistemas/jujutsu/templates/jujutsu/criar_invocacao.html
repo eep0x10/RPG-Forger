@@ -1,0 +1,728 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Editar' if inv else 'Nova' }} Invocação – {{ dados.nome }}{% endblock %}
+
+{% block content %}
+<div class="page-container" style="max-width:900px">
+  <div class="page-header">
+    <div>
+      <a href="{{ url_for('jujutsu.listar_invocacoes', pid=pid) }}" class="btn btn-ghost btn-sm">← Invocações</a>
+      <h2 style="margin-top:0.5rem">{{ '✏️ Editar' if inv else '🐉 Nova' }} Invocação</h2>
+    </div>
+    <div class="text-muted" style="font-size:0.9rem">Personagem: <strong>{{ dados.nome }}</strong> · Nível {{ nivel }} · BT +{{ bt }}</div>
+  </div>
+
+  <form method="POST" id="inv-form">
+    <input type="hidden" name="acoes_json" id="acoes_json" value="[]">
+    <input type="hidden" name="caracteristicas_json" id="caracteristicas_json" value="[]">
+
+    <!-- ── INFORMAÇÕES BÁSICAS ─── -->
+    <div class="form-section">
+      <h3 class="section-title">📋 Informações Básicas</h3>
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label">Nome da Invocação <span class="required">*</span></label>
+          <input type="text" name="nome" class="form-input" required maxlength="60"
+                 value="{{ inv.nome if inv else '' }}" placeholder="Ex: Shikigami Nue">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Intermediário</label>
+          <input type="text" name="intermediario" class="form-input" maxlength="60"
+                 value="{{ inv.intermediario if inv else '' }}" placeholder="Ex: Talismã do Corvo">
+        </div>
+      </div>
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label">Tipo</label>
+          <select name="tipo" class="form-input">
+            <option value="shikigami" {{ 'selected' if inv and inv.tipo=='shikigami' else '' }}>🌀 Shikigami</option>
+            <option value="marionete" {{ 'selected' if inv and inv.tipo=='marionete' else '' }}>🤖 Marionete (Corpo Amaldiçoado)</option>
+            <option value="maldicao_domada" {{ 'selected' if inv and inv.tipo=='maldicao_domada' else '' }}>👹 Maldição Domada</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Grau</label>
+          <select name="grau" id="grau-select" class="form-input" onchange="onGrauChange()">
+            {% for g in ['4','3','2','1','especial'] %}
+            {% set gn = {'4':'4° Grau','3':'3° Grau','2':'2° Grau','1':'1° Grau','especial':'Grau Especial'} %}
+            <option value="{{ g }}"
+                    {{ 'disabled' if g not in grades_acesso else '' }}
+                    {{ 'selected' if inv and inv.grau==g else ('selected' if not inv and g=='4' else '') }}>
+              {{ gn[g] }}{% if g not in grades_acesso %} (bloqueado){% endif %}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Descrição (opcional)</label>
+        <textarea name="descricao" class="form-input" rows="2"
+                  placeholder="Aparência, origem e personalidade da invocação...">{{ inv.descricao if inv else '' }}</textarea>
+      </div>
+    </div>
+
+    <!-- ── ATRIBUTOS ─── -->
+    <div class="form-section">
+      <h3 class="section-title">⚡ Atributos</h3>
+      <div class="inv-grade-info" id="grade-info-box">
+        <!-- preenchido por JS -->
+      </div>
+      <div class="atrib-inv-grid">
+        {% for attr, label in [('forca','Força'),('destreza','Destreza'),('constituicao','Constituição'),('inteligencia','Inteligência'),('sabedoria','Sabedoria'),('presenca','Presença')] %}
+        {% set val = inv.atributos.get(attr, 8) if inv else 8 %}
+        <div class="atrib-inv-item">
+          <label class="form-label">{{ label }}</label>
+          <div class="atrib-inv-controls">
+            <button type="button" class="btn-round" onclick="mudarAtrib('{{ attr }}', -1)">−</button>
+            <input type="number" name="attr_{{ attr }}" id="attr-{{ attr }}"
+                   class="atrib-inv-input" value="{{ val }}" min="6" max="30"
+                   onchange="recalcular()">
+            <button type="button" class="btn-round" onclick="mudarAtrib('{{ attr }}', 1)">+</button>
+          </div>
+          <div class="atrib-inv-mod" id="mod-{{ attr }}">—</div>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="inv-pontos-info" id="pontos-info">
+        <span>Pontos disponíveis: <strong id="pontos-disp">?</strong></span>
+        <span style="margin-left:1rem" class="text-muted">Máx. por atributo: <strong id="max-atrib">16</strong></span>
+      </div>
+
+      <!-- PV e DEF calculados -->
+      <div class="inv-calc-preview">
+        <div class="inv-calc-box">
+          <div class="inv-calc-label">Pontos de Vida</div>
+          <div class="inv-calc-val" id="calc-pv">—</div>
+          <div class="inv-calc-formula" id="calc-pv-formula" style="font-size:0.75rem;color:var(--text-muted)"></div>
+        </div>
+        <div class="inv-calc-box">
+          <div class="inv-calc-label">Defesa</div>
+          <div class="inv-calc-val" id="calc-def">—</div>
+          <div class="inv-calc-formula" style="font-size:0.75rem;color:var(--text-muted)">Fórmula do Grau + Mod.DES + BT</div>
+        </div>
+        <div class="inv-calc-box">
+          <div class="inv-calc-label">Custo PE (base)</div>
+          <div class="inv-calc-val" id="calc-pe">—</div>
+        </div>
+        <div class="inv-calc-box">
+          <div class="inv-calc-label">Bônus Invocação</div>
+          <div class="inv-calc-val" id="calc-bi">—</div>
+          <div class="inv-calc-formula" style="font-size:0.75rem;color:var(--text-muted)">Mod.Atq + BT + Nível/2</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── TREINAMENTOS ─── -->
+    <div class="form-section">
+      <h3 class="section-title">🎓 Treinamentos</h3>
+      <div class="form-grid-3">
+        <div class="form-group">
+          <label class="form-label">Tipo de Jogada de Ataque</label>
+          <div class="radio-group">
+            <label class="radio-item">
+              <input type="radio" name="jogada_ataque_tipo" value="corpo_a_corpo"
+                     {{ 'checked' if not inv or inv.jogada_ataque_tipo == 'corpo_a_corpo' else '' }}>
+              <span>Corpo a Corpo</span>
+            </label>
+            <label class="radio-item">
+              <input type="radio" name="jogada_ataque_tipo" value="distancia"
+                     {{ 'checked' if inv and inv.jogada_ataque_tipo == 'distancia' else '' }}>
+              <span>À Distância</span>
+            </label>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Atributo de Ataque</label>
+          <select name="atrib_ataque" id="atrib-ataque-select" class="form-input" onchange="recalcular()">
+            <option value="forca" {{ 'selected' if not inv or inv.atrib_ataque == 'forca' else '' }}>Força</option>
+            <option value="destreza" {{ 'selected' if inv and inv.atrib_ataque == 'destreza' else '' }}>Destreza</option>
+            <option value="inteligencia" {{ 'selected' if inv and inv.atrib_ataque == 'inteligencia' else '' }}>Inteligência</option>
+            <option value="sabedoria" {{ 'selected' if inv and inv.atrib_ataque == 'sabedoria' else '' }}>Sabedoria</option>
+            <option value="presenca" {{ 'selected' if inv and inv.atrib_ataque == 'presenca' else '' }}>Presença</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Teste de Resistência Treinado</label>
+          <select name="tr_treinado" class="form-input">
+            {% for tr in ['Fortitude','Reflexos','Vontade','Astúcia'] %}
+            <option value="{{ tr }}" {{ 'selected' if inv and inv.tr_treinado == tr else '' }}>{{ tr }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-top:1rem">
+        <label class="form-label">Perícias Treinadas
+          <span class="text-muted" style="font-weight:normal">
+            (base: 1 + metade mod.INT/SAB + bônus do grau; máx. <span id="pericias-max">?</span>)
+          </span>
+        </label>
+        <div class="pericias-check-grid">
+          {% set abbrev = {'forca':'FOR','destreza':'DES','constituicao':'CON','inteligencia':'INT','sabedoria':'SAB','presenca':'PRE'} %}
+          {% for p, attr in pericias.items() %}
+          <label class="check-item">
+            <input type="checkbox" name="pericias_treinadas" value="{{ p }}" class="inv-pericia-check"
+                   data-attr="{{ attr }}"
+                   {{ 'checked' if inv and p in inv.pericias_treinadas else '' }}>
+            <span>{{ p }}{% if p in pericias_treino %} <span class="badge-treino">*T</span>{% endif %} <span class="pericia-attr">({{ abbrev[attr] }})</span>
+              <span class="pericia-mod-live mod-pos inv-pmod" id="invpmod-{{ loop.index }}" data-attr="{{ attr }}">+0</span>
+            </span>
+          </label>
+          {% endfor %}
+        </div>
+        <div class="text-muted" id="pericias-selecionadas-info" style="margin-top:0.5rem;font-size:0.85rem">—</div>
+      </div>
+    </div>
+
+    <!-- ── AÇÕES E CARACTERÍSTICAS ─── -->
+    <div class="form-section">
+      <h3 class="section-title">🎯 Ações e Características</h3>
+      <div class="inv-slots-info" id="slots-info">
+        <span>Slots disponíveis: <strong id="slots-disp">?</strong> de <strong id="slots-total">?</strong></span>
+        <span class="text-muted" style="margin-left:1rem">Cada slot extra aumenta o custo em PE.</span>
+      </div>
+
+      <!-- AÇÕES -->
+      <div style="margin-top:1rem">
+        <div style="display:flex;align-items:center;gap:1rem;margin-bottom:0.75rem">
+          <h4 style="margin:0">⚡ Ações</h4>
+          <button type="button" class="btn btn-sm btn-secondary" onclick="adicionarAcao()">+ Adicionar Ação</button>
+        </div>
+
+        <!-- Tabelas de referência colapsáveis -->
+        <details class="ref-details">
+          <summary>📊 Referência de Dano por Grau</summary>
+          <div class="ref-table-scroll">
+            <table class="ref-table">
+              <thead><tr><th>Grau</th><th>Jogada Alvo Único</th><th>TR Alvo Único</th><th>Jogada Múltiplos</th><th>Jogada Área</th><th>Cura Único</th></tr></thead>
+              <tbody>
+                {% for g, gn in [('4','4° Grau'),('3','3° Grau'),('2','2° Grau'),('1','1° Grau'),('especial','Especial')] %}
+                <tr>
+                  <td>{{ gn }}</td>
+                  <td>{{ inv_dano.get('jogada_alvo_unico', {}).get(g, '—') }}</td>
+                  <td>{{ inv_dano.get('tr_alvo_unico', {}).get(g, '—') }}</td>
+                  <td>{{ inv_dano.get('jogada_multiplos', {}).get(g, '—') }}</td>
+                  <td>{{ inv_dano.get('jogada_area', {}).get(g, '—') }}</td>
+                  <td>{{ inv_dano.get('cura_alvo_unico', {}).get(g, '—') }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <div style="margin-top:0.5rem;font-size:0.8rem;color:var(--text-muted)">
+            Corpo a corpo: aumenta dano em 3 níveis. Bônus em dano: Mod. do atributo de ataque.
+          </div>
+        </details>
+
+        <details class="ref-details">
+          <summary>📊 Referência de Auxílio e Área</summary>
+          <div class="ref-table-scroll">
+            <table class="ref-table">
+              <thead><tr><th>Grau</th><th>+DEF (simples)</th><th>+Acerto</th><th>+Dano Adicional</th><th>RD (simples)</th><th>Alcance</th><th>Área</th></tr></thead>
+              <tbody>
+                {% for g, gn in [('4','4°'),('3','3°'),('2','2°'),('1','1°'),('especial','Esp.')] %}
+                <tr>
+                  <td>{{ gn }}</td>
+                  <td>+{{ inv_auxilio.bonus_defesa.get(g,'—') }}</td>
+                  <td>+{{ inv_auxilio.bonus_acerto.get(g,'—') }}</td>
+                  <td>{{ inv_auxilio.dano_adicional.get(g,'—') }}</td>
+                  <td>{{ inv_auxilio.reducao_dano.get(g,'—') }}</td>
+                  <td>{{ inv_grades.get(g, {}).get('alcance', '—') }}m</td>
+                  <td>{{ inv_area.get(g, '—') }}{% if inv_area.get(g) %}m{% endif %}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </details>
+
+        <div id="acoes-lista" class="inv-builder-lista">
+          <!-- Ações adicionadas dinamicamente -->
+        </div>
+      </div>
+
+      <!-- CARACTERÍSTICAS -->
+      <div style="margin-top:1.5rem">
+        <div style="display:flex;align-items:center;gap:1rem;margin-bottom:0.75rem">
+          <h4 style="margin:0">✨ Características</h4>
+          <button type="button" class="btn btn-sm btn-secondary" onclick="adicionarCarac()">+ Adicionar Característica</button>
+        </div>
+
+        <details class="ref-details">
+          <summary>📊 Referência de Características</summary>
+          <div class="ref-table-scroll">
+            <table class="ref-table">
+              <thead><tr><th>Grau</th><th>Aumento de Vida</th><th>Bônus em Teste</th><th>RD</th></tr></thead>
+              <tbody>
+                {% for g, gn in [('4','4° Grau'),('3','3° Grau'),('2','2° Grau'),('1','1° Grau'),('especial','Especial')] %}
+                <tr>
+                  <td>{{ gn }}</td>
+                  <td>+{{ inv_carac.aumento_vida.get(g,'—') }} PV</td>
+                  <td>+{{ inv_carac.bonus_teste.get(g,'—') }}</td>
+                  <td>{{ inv_carac.reducao_dano.get(g,'—') }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </details>
+
+        <div id="caracs-lista" class="inv-builder-lista">
+          <!-- Características adicionadas dinamicamente -->
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SUBMIT ─── -->
+    <div class="wizard-actions">
+      <a href="{{ url_for('jujutsu.listar_invocacoes', pid=pid) }}" class="btn btn-ghost">Cancelar</a>
+      <button type="submit" class="btn btn-primary btn-lg">
+        {{ '💾 Salvar Alterações' if inv else '🐉 Criar Invocação' }}
+      </button>
+    </div>
+  </form>
+</div>
+
+<script>
+const NIVEL = {{ nivel }};
+const BT = {{ bt }};
+const INV_GRADES = {{ inv_grades | tojson }};
+const INV_DANO = {{ inv_dano | tojson }};
+const INV_AUXILIO = {{ inv_auxilio | tojson }};
+const INV_CARAC = {{ inv_carac | tojson }};
+const INV_AREA = {{ inv_area | tojson }};
+const GRADE_ORDEM = ['4','3','2','1','especial'];
+
+// State
+let acoes = {{ (inv.acoes | tojson) if inv and inv.acoes else '[]' }};
+let caracs = {{ (inv.caracteristicas | tojson) if inv and inv.caracteristicas else '[]' }};
+
+function getGrau() { return document.getElementById('grau-select').value; }
+
+function getAtribs() {
+  const attrs = {};
+  ['forca','destreza','constituicao','inteligencia','sabedoria','presenca'].forEach(a => {
+    attrs[a] = parseInt(document.getElementById(`attr-${a}`).value) || 8;
+  });
+  return attrs;
+}
+
+function getMod(val) { return Math.floor((val - 10) / 2); }
+
+function onGrauChange() {
+  const g = getGrau();
+  const grade = INV_GRADES[g];
+  updateGradeInfo(g, grade);
+  recalcular();
+  updateSlots();
+  updatePericiasInfo();
+}
+
+function updateGradeInfo(g, grade) {
+  const nomes = {'4':'4° Grau','3':'3° Grau','2':'2° Grau','1':'1° Grau','especial':'Grau Especial'};
+  const box = document.getElementById('grade-info-box');
+  box.innerHTML = `<div class="grade-info-row">
+    <span>📦 Pontos para distribuir: <strong>${grade.pontos_atributo}</strong></span>
+    <span>📊 Máx. por atributo: <strong>${grade.max_atributo}</strong></span>
+    <span>❤️ PV base: <strong>${grade.pv_base}</strong></span>
+    <span>🛡️ DEF base: <strong>${grade.def_base}</strong></span>
+    <span>💎 Slots padrão: <strong>${grade.acoes_caracteristicas}</strong></span>
+    <span>💰 Custo base: <strong>${grade.custo_pe_base} PE</strong></span>
+  </div>`;
+  document.getElementById('max-atrib').textContent = grade.max_atributo;
+}
+
+function recalcular() {
+  const g = getGrau();
+  const grade = INV_GRADES[g];
+  const attrs = getAtribs();
+  const con = attrs.constituicao;
+  const dex = attrs.destreza;
+  const modDex = getMod(dex);
+
+  // Update mod displays
+  ['forca','destreza','constituicao','inteligencia','sabedoria','presenca'].forEach(a => {
+    const m = getMod(attrs[a]);
+    const el = document.getElementById(`mod-${a}`);
+    el.textContent = (m >= 0 ? '+' : '') + m;
+    el.className = 'atrib-inv-mod ' + (m >= 0 ? 'pos' : 'neg');
+  });
+
+  // Update pericia modifier displays
+  document.querySelectorAll('.inv-pmod').forEach(el => {
+    const a = el.dataset.attr;
+    const m = getMod(attrs[a] || 8);
+    el.textContent = (m >= 0 ? '+' : '') + m;
+    el.className = 'pericia-mod-live inv-pmod ' + (m >= 0 ? 'mod-pos' : 'mod-neg');
+  });
+
+  // PV
+  let pv;
+  const nContrib = Math.round(NIVEL * grade.pv_nivel_mult);
+  if (grade.pv_con_tipo === 'metade') {
+    pv = grade.pv_base + Math.floor(con / 2) + nContrib;
+    document.getElementById('calc-pv-formula').textContent =
+      `${grade.pv_base} + CON/2(${Math.floor(con/2)}) + ${nContrib}(nível×${grade.pv_nivel_mult})`;
+  } else {
+    pv = grade.pv_base + con + nContrib;
+    document.getElementById('calc-pv-formula').textContent =
+      `${grade.pv_base} + CON(${con}) + ${nContrib}(nível×${grade.pv_nivel_mult})`;
+  }
+  // add aumento_vida from caracs
+  caracs.forEach(c => { if (c.tipo === 'aumento_vida') pv += (INV_CARAC.aumento_vida[g] || 0); });
+  document.getElementById('calc-pv').textContent = Math.max(1, pv);
+
+  // DEF
+  const def = grade.def_base + modDex + BT;
+  document.getElementById('calc-def').textContent = def;
+
+  // Custo PE (base + extras)
+  const nBase = grade.acoes_caracteristicas;
+  const total = acoes.length + caracs.length;
+  let custoPE = grade.custo_pe_base;
+  acoes.forEach((a, i) => { if (i >= nBase - caracs.length && a.is_extra) custoPE += (a.tipo === 'complexa' ? 2 : 1); });
+  caracs.forEach((c, i) => { if (c.is_extra) custoPE += 1; });
+  document.getElementById('calc-pe').textContent = custoPE + ' PE';
+
+  // Bônus invocação
+  const atribAtq = document.getElementById('atrib-ataque-select').value;
+  const modAtq = getMod(attrs[atribAtq] || 8);
+  const bonusInv = modAtq + BT + Math.floor(NIVEL / 2);
+  document.getElementById('calc-bi').textContent = (bonusInv >= 0 ? '+' : '') + bonusInv;
+
+  // Pontos disponíveis
+  const pontosUsados = Object.values(attrs).reduce((s, v) => s + Math.max(0, v - 8), 0);
+  // Also count reductions (can reduce to 6, gaining points)
+  const reducoes = Object.values(attrs).reduce((s, v) => s + Math.max(0, 8 - v), 0);
+  const disp = grade.pontos_atributo - pontosUsados + reducoes;
+  const pontosEl = document.getElementById('pontos-disp');
+  pontosEl.textContent = disp;
+  pontosEl.style.color = disp < 0 ? 'var(--danger)' : disp === 0 ? 'var(--success)' : 'var(--text)';
+}
+
+function mudarAtrib(attr, delta) {
+  const g = getGrau();
+  const grade = INV_GRADES[g];
+  const inp = document.getElementById(`attr-${attr}`);
+  const val = parseInt(inp.value) || 8;
+  const novo = val + delta;
+  if (novo < 6) return;
+  if (novo > grade.max_atributo) return;
+  // Check pontos
+  const attrs = getAtribs();
+  attrs[attr] = novo;
+  const pontosUsados = Object.values(attrs).reduce((s, v) => s + Math.max(0, v - 8), 0);
+  const reducoes = Object.values(attrs).reduce((s, v) => s + Math.max(0, 8 - v), 0);
+  const disp = grade.pontos_atributo - pontosUsados + reducoes;
+  if (disp < 0) return;
+  inp.value = novo;
+  recalcular();
+}
+
+function updateSlots() {
+  const g = getGrau();
+  const grade = INV_GRADES[g];
+  const nBase = grade.acoes_caracteristicas;
+  const extras = Math.floor(GRADE_ORDEM.indexOf(g) + 1); // grade index = max extras
+  const totalMax = nBase + extras;
+  const used = acoes.length + caracs.length;
+  document.getElementById('slots-disp').textContent = totalMax - used;
+  document.getElementById('slots-total').textContent = totalMax;
+}
+
+function updatePericiasInfo() {
+  const g = getGrau();
+  const grade = INV_GRADES[g];
+  const attrs = getAtribs();
+  const modInt = getMod(attrs.inteligencia);
+  const modSab = getMod(attrs.sabedoria);
+  const bonusPericia = Math.floor(Math.max(modInt, modSab) / 2);
+  const periMax = 1 + bonusPericia + grade.pericias_bonus;
+  document.getElementById('pericias-max').textContent = periMax;
+  const selected = document.querySelectorAll('.inv-pericia-check:checked').length;
+  const info = document.getElementById('pericias-selecionadas-info');
+  info.textContent = `${selected}/${periMax} perícias selecionadas`;
+  info.style.color = selected > periMax ? 'var(--danger)' : 'var(--text-muted)';
+}
+
+// Limit pericias selection
+document.querySelectorAll('.inv-pericia-check').forEach(cb => {
+  cb.addEventListener('change', updatePericiasInfo);
+});
+
+// ── AÇÕES BUILDER ──────────────────────────────────────────
+
+function renderAcoes() {
+  const lista = document.getElementById('acoes-lista');
+  lista.innerHTML = '';
+  const g = getGrau();
+  acoes.forEach((a, i) => {
+    const div = document.createElement('div');
+    div.className = 'inv-builder-item';
+    div.innerHTML = buildAcaoHTML(a, i, g);
+    lista.appendChild(div);
+  });
+  updateSlots();
+  recalcular();
+  syncJSON();
+}
+
+function buildAcaoHTML(a, i, g) {
+  const tipoOptions = ['simples','complexa'].map(t =>
+    `<option value="${t}" ${a.tipo===t?'selected':''}>${t==='simples'?'Simples (Ação Bônus)':'Complexa (Ação Comum)'}</option>`
+  ).join('');
+
+  const subtipoOptions = [
+    ['ataque_jogada','Ataque – Jogada'],
+    ['ataque_tr','Ataque – Teste de Resistência'],
+    ['auxilio_cura','Auxílio – Cura'],
+    ['auxilio_defesa','Auxílio – Bônus Defesa'],
+    ['auxilio_acerto','Auxílio – Bônus Acerto'],
+    ['auxilio_dano','Auxílio – Dano Adicional'],
+    ['auxilio_rd','Auxílio – Redução de Dano'],
+    ['livre','Livre (descreva manualmente)'],
+  ].map(([v,l]) => `<option value="${v}" ${a.subtipo===v?'selected':''}>${l}</option>`).join('');
+
+  const alvoOpts = [
+    ['alvo_unico','Alvo Único'],['multiplos','Múltiplos Alvos'],['area','Área']
+  ].map(([v,l]) => `<option value="${v}" ${a.alvo===v?'selected':''}>${l}</option>`).join('');
+
+  const trOpts = ['Fortitude','Reflexos','Vontade','Astúcia']
+    .map(t => `<option value="${t}" ${a.tr===t?'selected':''}>${t}</option>`).join('');
+
+  const tipoDanoOpts = ['Físico','Fogo','Gelo','Elétrico','Ácido','Sônico','Necrótico','Radiante','Psíquico','Veneno']
+    .map(t => `<option value="${t}" ${a.tipo_dano===t?'selected':''}>${t}</option>`).join('');
+
+  const danoSugerido = getDanoSugerido(a.subtipo || 'ataque_jogada', g, a.alvo || 'alvo_unico');
+  const extraBadge = a.is_extra ? '<span class="badge badge-warning" style="font-size:0.65rem;margin-left:0.5rem">Extra +PE</span>' : '';
+
+  return `
+    <div class="inv-builder-header">
+      <strong>${a.nome || '(sem nome)'}</strong> ${extraBadge}
+      <div>
+        <button type="button" class="btn btn-sm btn-ghost" onclick="moveAcao(${i},-1)" title="Mover cima">↑</button>
+        <button type="button" class="btn btn-sm btn-ghost" onclick="moveAcao(${i},1)" title="Mover baixo">↓</button>
+        <button type="button" class="btn btn-sm btn-danger" onclick="removerAcao(${i})">×</button>
+      </div>
+    </div>
+    <div class="inv-builder-fields">
+      <div class="form-group">
+        <label class="form-label">Nome</label>
+        <input class="form-input" value="${a.nome||''}" oninput="acoes[${i}].nome=this.value;syncJSON()">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Tipo</label>
+        <select class="form-input" onchange="acoes[${i}].tipo=this.value;renderAcoes()">
+          ${tipoOptions}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Subtipo</label>
+        <select class="form-input" onchange="acoes[${i}].subtipo=this.value;acoes[${i}].dano=getDanoSugerido(this.value,getGrau(),acoes[${i}].alvo||'alvo_unico');renderAcoes()">
+          ${subtipoOptions}
+        </select>
+      </div>
+      ${a.subtipo && a.subtipo.startsWith('ataque') ? `
+      <div class="form-group">
+        <label class="form-label">Alvo</label>
+        <select class="form-input" onchange="acoes[${i}].alvo=this.value;acoes[${i}].dano=getDanoSugerido(acoes[${i}].subtipo,getGrau(),this.value);renderAcoes()">
+          ${alvoOpts}
+        </select>
+      </div>` : ''}
+      ${a.subtipo === 'ataque_tr' ? `
+      <div class="form-group">
+        <label class="form-label">TR do Alvo</label>
+        <select class="form-input" onchange="acoes[${i}].tr=this.value;syncJSON()">${trOpts}</select>
+      </div>` : ''}
+      ${a.subtipo && (a.subtipo.startsWith('ataque') || a.subtipo === 'auxilio_cura') ? `
+      <div class="form-group">
+        <label class="form-label">Dano / Cura <span class="text-muted" style="font-weight:normal">(sugerido: ${danoSugerido})</span></label>
+        <input class="form-input" value="${a.dano||danoSugerido}" oninput="acoes[${i}].dano=this.value;syncJSON()" placeholder="Ex: 1d12">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Tipo de Dano</label>
+        <select class="form-input" onchange="acoes[${i}].tipo_dano=this.value;syncJSON()">${tipoDanoOpts}</select>
+      </div>` : ''}
+      <div class="form-group">
+        <label class="form-label">Custo em PE (0 = sem custo)</label>
+        <input type="number" class="form-input" min="0" max="${GRADE_ORDEM.indexOf(g)+1 === 0 ? 2 : (GRADE_ORDEM.indexOf(g)+1)*2}"
+               value="${a.custo_pe||0}" oninput="acoes[${i}].custo_pe=parseInt(this.value)||0;syncJSON()">
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label class="form-label">Descrição</label>
+        <textarea class="form-input" rows="2" oninput="acoes[${i}].desc=this.value;syncJSON()">${a.desc||''}</textarea>
+      </div>
+    </div>
+  `;
+}
+
+function getDanoSugerido(subtipo, g, alvo) {
+  if (subtipo === 'ataque_jogada') {
+    if (alvo === 'multiplos') return INV_DANO.jogada_multiplos[g] || '—';
+    if (alvo === 'area') return INV_DANO.jogada_area[g] || '—';
+    return INV_DANO.jogada_alvo_unico[g] || '—';
+  }
+  if (subtipo === 'ataque_tr') {
+    return INV_DANO.tr_alvo_unico[g] || '—';
+  }
+  if (subtipo === 'auxilio_cura') {
+    if (alvo === 'multiplos') return INV_DANO.cura_multiplos[g] || '—';
+    return INV_DANO.cura_alvo_unico[g] || '—';
+  }
+  return '';
+}
+
+function adicionarAcao() {
+  const g = getGrau();
+  const grade = INV_GRADES[g];
+  const nBase = grade.acoes_caracteristicas;
+  const extras = GRADE_ORDEM.indexOf(g) + 1;
+  const totalMax = nBase + extras;
+  const usado = acoes.length + caracs.length;
+  if (usado >= totalMax) {
+    alert(`Limite de slots atingido (${totalMax}). Cada grau permite um número adicional de ações/características.`);
+    return;
+  }
+  const isExtra = usado >= nBase;
+  const dano = getDanoSugerido('ataque_jogada', g, 'alvo_unico');
+  acoes.push({nome:'', tipo:'complexa', subtipo:'ataque_jogada', alvo:'alvo_unico', dano:dano, tipo_dano:'Físico', custo_pe:0, desc:'', is_extra:isExtra});
+  renderAcoes();
+}
+
+function removerAcao(i) {
+  acoes.splice(i, 1);
+  // Recalc is_extra
+  recalcExtras();
+  renderAcoes();
+}
+
+function moveAcao(i, delta) {
+  const j = i + delta;
+  if (j < 0 || j >= acoes.length) return;
+  [acoes[i], acoes[j]] = [acoes[j], acoes[i]];
+  renderAcoes();
+}
+
+// ── CARACTERÍSTICAS BUILDER ────────────────────────────────
+
+function renderCaracs() {
+  const lista = document.getElementById('caracs-lista');
+  lista.innerHTML = '';
+  const g = getGrau();
+  caracs.forEach((c, i) => {
+    const div = document.createElement('div');
+    div.className = 'inv-builder-item';
+    div.innerHTML = buildCaracHTML(c, i, g);
+    lista.appendChild(div);
+  });
+  updateSlots();
+  recalcular();
+  syncJSON();
+}
+
+function buildCaracHTML(c, i, g) {
+  const tipoOpts = [
+    ['aumento_vida','Aumento de Vida'],
+    ['bonus_teste','Bônus em Teste'],
+    ['reducao_dano','Redução de Dano'],
+    ['tamanho','Tamanho'],
+    ['personalizado','Personalizado / Livre'],
+  ].map(([v,l]) => `<option value="${v}" ${c.tipo===v?'selected':''}>${l}</option>`).join('');
+
+  const valorSugerido = getCaracValorSugerido(c.tipo||'aumento_vida', g);
+  const extraBadge = c.is_extra ? '<span class="badge badge-warning" style="font-size:0.65rem;margin-left:0.5rem">Extra +1PE</span>' : '';
+
+  return `
+    <div class="inv-builder-header">
+      <strong>${c.nome||'(sem nome)'}</strong> ${extraBadge}
+      <div>
+        <button type="button" class="btn btn-sm btn-ghost" onclick="moveCarac(${i},-1)">↑</button>
+        <button type="button" class="btn btn-sm btn-ghost" onclick="moveCarac(${i},1)">↓</button>
+        <button type="button" class="btn btn-sm btn-danger" onclick="removerCarac(${i})">×</button>
+      </div>
+    </div>
+    <div class="inv-builder-fields">
+      <div class="form-group">
+        <label class="form-label">Nome</label>
+        <input class="form-input" value="${c.nome||''}" oninput="caracs[${i}].nome=this.value;syncJSON()">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Tipo</label>
+        <select class="form-input" onchange="caracs[${i}].tipo=this.value;renderCaracs()">
+          ${tipoOpts}
+        </select>
+      </div>
+      ${valorSugerido ? `
+      <div class="form-group">
+        <label class="form-label">Valor <span class="text-muted" style="font-weight:normal">(referência: ${valorSugerido})</span></label>
+        <input class="form-input" value="${c.valor||valorSugerido}" oninput="caracs[${i}].valor=this.value;syncJSON()">
+      </div>` : ''}
+      <div class="form-group" style="grid-column:1/-1">
+        <label class="form-label">Descrição / Efeito</label>
+        <textarea class="form-input" rows="2" oninput="caracs[${i}].desc=this.value;syncJSON()">${c.desc||''}</textarea>
+      </div>
+    </div>
+  `;
+}
+
+function getCaracValorSugerido(tipo, g) {
+  if (tipo === 'aumento_vida') return `+${INV_CARAC.aumento_vida[g]||'?'} PV`;
+  if (tipo === 'bonus_teste') return `+${INV_CARAC.bonus_teste[g]||'?'}`;
+  if (tipo === 'reducao_dano') return `${INV_CARAC.reducao_dano[g]||'?'} RD`;
+  return '';
+}
+
+function adicionarCarac() {
+  const g = getGrau();
+  const grade = INV_GRADES[g];
+  const nBase = grade.acoes_caracteristicas;
+  const extras = GRADE_ORDEM.indexOf(g) + 1;
+  const totalMax = nBase + extras;
+  const usado = acoes.length + caracs.length;
+  if (usado >= totalMax) {
+    alert(`Limite de slots atingido (${totalMax}).`);
+    return;
+  }
+  const isExtra = usado >= nBase;
+  caracs.push({nome:'', tipo:'aumento_vida', desc:'', is_extra:isExtra});
+  renderCaracs();
+}
+
+function removerCarac(i) {
+  caracs.splice(i, 1);
+  recalcExtras();
+  renderCaracs();
+}
+
+function moveCarac(i, delta) {
+  const j = i + delta;
+  if (j < 0 || j >= caracs.length) return;
+  [caracs[i], caracs[j]] = [caracs[j], caracs[i]];
+  renderCaracs();
+}
+
+function recalcExtras() {
+  const g = getGrau();
+  const grade = INV_GRADES[g];
+  const nBase = grade.acoes_caracteristicas;
+  let idx = 0;
+  acoes.forEach(a => { a.is_extra = idx >= nBase; idx++; });
+  caracs.forEach(c => { c.is_extra = idx >= nBase; idx++; });
+}
+
+function syncJSON() {
+  document.getElementById('acoes_json').value = JSON.stringify(acoes);
+  document.getElementById('caracteristicas_json').value = JSON.stringify(caracs);
+}
+
+// ── INIT ──────────────────────────────────────────────────
+function init() {
+  const g = getGrau();
+  updateGradeInfo(g, INV_GRADES[g]);
+  recalcular();
+  renderAcoes();
+  renderCaracs();
+  updatePericiasInfo();
+}
+init();
+</script>
+{% endblock %}

@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}Editar – {{ dados.nome }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">✏️ Editar – {{ dados.nome }}</h1>
+  <a href="{{ url_for('old_dragon.ver_personagem', pid=pid) }}" class="btn btn-ghost">← Voltar</a>
+</div>
+
+<form method="POST" action="{{ url_for('old_dragon.editar_personagem', pid=pid) }}" class="wizard-form">
+
+  <div class="form-section">
+    <h2 class="form-section-title">Identidade</h2>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Nome</label>
+        <input type="text" name="nome" class="form-input" value="{{ dados.nome }}" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Jogador</label>
+        <input type="text" name="jogador" class="form-input" value="{{ dados.jogador or '' }}">
+      </div>
+    </div>
+    <div class="form-row" style="margin-top:.75rem">
+      <div class="form-group">
+        <label class="form-label">Alinhamento</label>
+        <select name="alinhamento" class="form-input form-select">
+          {% for key, nome in alinhamentos.items() %}
+          <option value="{{ key }}" {{ 'selected' if dados.alinhamento == key }}>{{ nome }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">XP</label>
+        <input type="number" name="xp" class="form-input" value="{{ dados.xp or 0 }}" min="0">
+      </div>
+    </div>
+    <div class="form-row" style="margin-top:.75rem">
+      <div class="form-group">
+        <label class="form-label">PV Atual</label>
+        <input type="number" name="pv_atual" class="form-input" value="{{ dados.pv_atual or dados.calculado.pv_max }}" min="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Armadura</label>
+        <select name="armadura" class="form-input form-select">
+          {% for a in armaduras %}
+          {% if a.tipo != 'escudo' %}
+          <option value="{{ a.nome }}" {{ 'selected' if dados.armadura == a.nome }}>{{ a.nome }}</option>
+          {% endif %}
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="form-group" style="margin-top:.75rem">
+      <label>
+        <input type="checkbox" name="escudo" value="1" {{ 'checked' if dados.escudo }}> Usando escudo
+      </label>
+    </div>
+  </div>
+
+  <div class="form-section">
+    <h2 class="form-section-title">Atributos</h2>
+    <div class="attrs-grid">
+      {% for attr in atributos %}
+      <div class="attr-block">
+        <label class="attr-label">{{ atributos_labels[attr] }}</label>
+        <input type="number" name="attr_{{ attr }}" value="{{ dados.atributos.get(attr, 10) }}"
+               min="1" max="30" class="form-input attr-input">
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="form-section">
+    <h2 class="form-section-title">Perícias Treinadas</h2>
+    <div class="pericias-grid">
+      {% for nome_p, attr in pericias.items() %}
+      <label class="pericia-check pericia-disponivel">
+        <input type="checkbox" name="pericias" value="{{ nome_p }}"
+               {{ 'checked' if nome_p in (dados.pericias_treinadas or []) }}>
+        <span class="pericia-nome">{{ nome_p }}</span>
+        <span class="pericia-attr">({{ attr[:3].upper() }})</span>
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="form-section">
+    <h2 class="form-section-title">Notas</h2>
+    <textarea name="notas" class="form-input" rows="4">{{ dados.notas or '' }}</textarea>
+  </div>
+  <div class="form-section">
+    <h2 class="form-section-title">Antecedente</h2>
+    <textarea name="antecedente" class="form-input" rows="3">{{ dados.antecedente or '' }}</textarea>
+  </div>
+
+  <div class="wizard-footer">
+    <a href="{{ url_for('old_dragon.ver_personagem', pid=pid) }}" class="btn btn-ghost">Cancelar</a>
+    <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+  </div>
+</form>
+
+<style>
+.form-section{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:1.5rem;margin-bottom:1.25rem}
+.form-section-title{font-size:.9rem;font-weight:700;color:var(--accent-light);text-transform:uppercase;letter-spacing:.5px;margin:0 0 1.25rem}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.form-group{display:flex;flex-direction:column;gap:.4rem}
+.form-label{font-size:.82rem;font-weight:600;color:var(--text-muted)}
+.form-input{background:var(--bg-input);border:1px solid var(--border);border-radius:8px;padding:.55rem .75rem;color:var(--text);font-size:.9rem;width:100%}
+.form-select{cursor:pointer}
+.attrs-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:.75rem}
+.attr-block{display:flex;flex-direction:column;gap:.3rem;align-items:center}
+.attr-label{font-size:.72rem;font-weight:700;color:var(--text-muted)}
+.attr-input{width:80px;text-align:center}
+.pericias-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.4rem}
+.pericia-check{display:flex;align-items:center;gap:.5rem;padding:.35rem .6rem;border-radius:6px;background:var(--bg-input);border:1px solid var(--border);cursor:pointer;font-size:.82rem}
+.pericia-disponivel:hover{border-color:var(--accent)}
+.pericia-nome{font-weight:600;flex:1}
+.pericia-attr{color:var(--text-muted);font-size:.72rem}
+.wizard-footer{display:flex;justify-content:flex-end;gap:.75rem;margin-top:1.5rem}
+</style>
+{% endblock %}

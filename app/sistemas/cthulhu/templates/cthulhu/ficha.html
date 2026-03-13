@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+{% block title %}{{ dados.nome }} – Call of Cthulhu{% endblock %}
+{% block content %}
+<div class="ficha-container">
+
+  <div class="ficha-header">
+    <div class="ficha-avatar-big">{{ dados.nome[0].upper() if dados.nome else '?' }}</div>
+    <div class="ficha-title-area">
+      <h1 class="ficha-nome">{{ dados.nome }}</h1>
+      <p class="ficha-jogador">{{ dados.jogador or 'Sem jogador' }}</p>
+      <div class="ficha-tags">
+        <span class="badge">{{ ocupacao.get('nome', '?') }}</span>
+        <span class="badge">{{ era.get('nome', '?') }}</span>
+        <span class="badge">{{ dados.idade or '?' }} anos</span>
+        {% if dados.residencia %}
+        <span class="badge">{{ dados.residencia }}</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="ficha-actions">
+      <a href="{{ url_for('cthulhu.editar_personagem', pid=pid) }}" class="btn btn-secondary">✏️ Editar</a>
+      <form method="POST" action="{{ url_for('cthulhu.deletar_personagem', pid=pid) }}"
+            onsubmit="return confirm('Deletar {{ dados.nome }}?')">
+        <button type="submit" class="btn btn-danger btn-sm">🗑️</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Recursos Vitais -->
+  <div class="stats-row">
+    <div class="stat-box pv">
+      <span class="stat-lbl">PV</span>
+      <span class="stat-val" id="pv-display">{{ dados.pv_atual or dados.calculado.pv_max }} / {{ dados.calculado.pv_max }}</span>
+      <div class="stat-controls">
+        <button onclick="alterarRecurso('pv',-1)" class="btn-stat">−</button>
+        <button onclick="alterarRecurso('pv',1)" class="btn-stat">+</button>
+      </div>
+    </div>
+    <div class="stat-box pm">
+      <span class="stat-lbl">Pontos de Magia</span>
+      <span class="stat-val" id="pm-display">{{ dados.pm_atual or dados.calculado.pm_max }} / {{ dados.calculado.pm_max }}</span>
+      <div class="stat-controls">
+        <button onclick="alterarRecurso('pm',-1)" class="btn-stat">−</button>
+        <button onclick="alterarRecurso('pm',1)" class="btn-stat">+</button>
+      </div>
+    </div>
+    <div class="stat-box san">
+      <span class="stat-lbl">Sanidade</span>
+      <span class="stat-val" id="san-display">{{ dados.san_atual or dados.calculado.san_inicial }} / {{ dados.calculado.san_maxima }}</span>
+      <div class="stat-controls">
+        <button onclick="alterarRecurso('san',-1)" class="btn-stat">−</button>
+        <button onclick="alterarRecurso('san',1)" class="btn-stat">+</button>
+      </div>
+    </div>
+    <div class="stat-box mitos">
+      <span class="stat-lbl">Mitos de Cthulhu</span>
+      <span class="stat-val" id="mitos-display">{{ dados.conhecimento_mitos or 0 }}%</span>
+      <div class="stat-controls">
+        <button onclick="alterarRecurso('mitos',-1)" class="btn-stat">−</button>
+        <button onclick="alterarRecurso('mitos',1)" class="btn-stat">+</button>
+      </div>
+    </div>
+    <div class="stat-box">
+      <span class="stat-lbl">Movimento</span>
+      <span class="stat-val">{{ dados.calculado.movimento }}</span>
+    </div>
+    <div class="stat-box">
+      <span class="stat-lbl">Bônus de Dano</span>
+      <span class="stat-val">{{ dados.calculado.bonus_dano }}</span>
+    </div>
+    <div class="stat-box">
+      <span class="stat-lbl">Construção</span>
+      <span class="stat-val">{{ dados.calculado.construcao }}</span>
+    </div>
+  </div>
+
+  <!-- Características -->
+  <div class="section-card">
+    <h2 class="section-title">Características</h2>
+    <div class="chars-display">
+      {% for char in caracteristicas %}
+      {% set val = dados.caracteristicas.get(char, 50) %}
+      <div class="char-display-block">
+        <span class="cdb-label">{{ caracteristicas_abrev[char] }}</span>
+        <span class="cdb-value">{{ val }}</span>
+        <span class="cdb-half">½ {{ dados.calculado[char + '_metade'] }}</span>
+        <span class="cdb-fifth">⅕ {{ dados.calculado[char + '_quinto'] }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Perícias -->
+  <div class="section-card">
+    <h2 class="section-title">Perícias</h2>
+    <div class="pericias-display">
+      {% for nome_p, info in dados.calculado.pericias.items() %}
+      <div class="pericia-row" onclick="testarPericia('{{ nome_p }}', {{ info.valor }})" title="Clique para testar">
+        <span class="prow-nome">{{ nome_p }}</span>
+        <span class="prow-vals">
+          <span class="pval-reg">{{ info.regular }}%</span>
+          <span class="pval-sep">/</span>
+          <span class="pval-hard">{{ info.hard }}%</span>
+          <span class="pval-sep">/</span>
+          <span class="pval-ext">{{ info.extreme }}%</span>
+        </span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Equipamentos -->
+  {% if dados.equipamentos %}
+  <div class="section-card">
+    <h2 class="section-title">Equipamentos</h2>
+    <p style="white-space:pre-wrap;font-size:.88rem;color:var(--text-muted)">{{ dados.equipamentos }}</p>
+  </div>
+  {% endif %}
+
+  <!-- Notas -->
+  {% if dados.notas %}
+  <div class="section-card">
+    <h2 class="section-title">Notas</h2>
+    <p style="white-space:pre-wrap;font-size:.88rem;color:var(--text-muted)">{{ dados.notas }}</p>
+  </div>
+  {% endif %}
+
+  <!-- Resultado de teste -->
+  <div id="resultado-overlay" class="resultado-overlay hidden">
+    <div class="resultado-box">
+      <div id="resultado-titulo" class="resultado-titulo"></div>
+      <div id="resultado-desc" class="resultado-desc"></div>
+      <button onclick="fecharResultado()" class="btn btn-ghost btn-sm" style="margin-top:.75rem">Fechar</button>
+    </div>
+  </div>
+
+</div>
+
+<style>
+.ficha-container{max-width:960px;margin:0 auto}
+.ficha-header{display:flex;align-items:flex-start;gap:1.5rem;margin-bottom:1.5rem;flex-wrap:wrap}
+.ficha-avatar-big{width:64px;height:64px;border-radius:50%;background:#4a1942;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.6rem;flex-shrink:0}
+.ficha-title-area{flex:1}
+.ficha-nome{font-size:1.6rem;font-weight:700;margin:0 0 .2rem}
+.ficha-jogador{color:var(--text-muted);font-size:.85rem;margin:0 0 .5rem}
+.ficha-tags{display:flex;flex-wrap:wrap;gap:.4rem}
+.badge{font-size:.72rem;padding:.2rem .55rem;border-radius:99px;background:rgba(74,25,66,.3);color:#c792ea;border:1px solid rgba(74,25,66,.5)}
+.ficha-actions{display:flex;gap:.5rem;align-items:flex-start;flex-shrink:0}
+.stats-row{display:flex;flex-wrap:wrap;gap:.75rem;margin-bottom:1.25rem}
+.stat-box{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:.75rem 1rem;min-width:90px;text-align:center}
+.stat-box.pv{border-color:rgba(239,68,68,.4)}
+.stat-box.pm{border-color:rgba(59,130,246,.3)}
+.stat-box.san{border-color:rgba(16,185,129,.3)}
+.stat-box.mitos{border-color:rgba(74,25,66,.5)}
+.stat-lbl{display:block;font-size:.65rem;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted);margin-bottom:.2rem}
+.stat-val{display:block;font-size:1.1rem;font-weight:700}
+.stat-controls{display:flex;gap:.3rem;justify-content:center;margin-top:.4rem}
+.btn-stat{background:var(--bg-input);border:1px solid var(--border);border-radius:5px;color:var(--text);width:28px;height:24px;cursor:pointer;font-size:.9rem}
+.section-card{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:1.25rem;margin-bottom:1rem}
+.section-title{font-size:.85rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin:0 0 1rem}
+.chars-display{display:flex;flex-wrap:wrap;gap:.75rem}
+.char-display-block{background:var(--bg-input);border:1px solid var(--border);border-radius:8px;padding:.6rem .9rem;min-width:75px;text-align:center}
+.cdb-label{display:block;font-size:.6rem;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted)}
+.cdb-value{display:block;font-size:1.4rem;font-weight:700}
+.cdb-half,.cdb-fifth{display:block;font-size:.68rem;color:var(--text-muted)}
+.pericias-display{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:.3rem}
+.pericia-row{display:flex;align-items:center;justify-content:space-between;gap:.4rem;padding:.35rem .6rem;border-radius:5px;font-size:.82rem;cursor:pointer;transition:background .1s}
+.pericia-row:hover{background:rgba(124,58,237,.1)}
+.prow-nome{flex:1;font-weight:500}
+.prow-vals{display:flex;align-items:center;gap:.2rem;font-size:.78rem}
+.pval-reg{color:var(--text);font-weight:600}
+.pval-hard{color:#f59e0b;font-weight:600}
+.pval-ext{color:#10b981;font-weight:600}
+.pval-sep{color:var(--text-muted)}
+.resultado-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:999}
+.resultado-overlay.hidden{display:none}
+.resultado-box{background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:2rem;text-align:center;min-width:240px}
+.resultado-titulo{font-size:1.4rem;font-weight:700;margin-bottom:.5rem}
+.resultado-desc{font-size:.9rem;color:var(--text-muted)}
+.critico .resultado-titulo{color:#f59e0b}
+.extremo .resultado-titulo{color:#10b981}
+.dificil .resultado-titulo{color:#60a5fa}
+.regular .resultado-titulo{color:var(--text)}
+.falha .resultado-titulo{color:#ef4444}
+.fumble .resultado-titulo{color:#7c3aed}
+</style>
+{% endblock %}
+{% block scripts %}
+<script>
+const URL_RECURSOS = "{{ url_for('cthulhu.atualizar_recursos', pid=pid) }}";
+const URL_TESTAR = "{{ url_for('cthulhu.testar_pericia') }}";
+
+let pvAtual = {{ dados.pv_atual or dados.calculado.pv_max }};
+let pvMax = {{ dados.calculado.pv_max }};
+let pmAtual = {{ dados.pm_atual or dados.calculado.pm_max }};
+let pmMax = {{ dados.calculado.pm_max }};
+let sanAtual = {{ dados.san_atual or dados.calculado.san_inicial }};
+let sanMax = {{ dados.calculado.san_maxima }};
+let mitos = {{ dados.conhecimento_mitos or 0 }};
+
+function alterarRecurso(tipo, delta) {
+  const payload = {};
+  if(tipo === 'pv'){
+    pvAtual = Math.max(0, Math.min(pvAtual + delta, pvMax));
+    document.getElementById('pv-display').textContent = `${pvAtual} / ${pvMax}`;
+    payload.pv_atual = pvAtual;
+  } else if(tipo === 'pm'){
+    pmAtual = Math.max(0, Math.min(pmAtual + delta, pmMax));
+    document.getElementById('pm-display').textContent = `${pmAtual} / ${pmMax}`;
+    payload.pm_atual = pmAtual;
+  } else if(tipo === 'san'){
+    sanAtual = Math.max(0, Math.min(sanAtual + delta, sanMax));
+    document.getElementById('san-display').textContent = `${sanAtual} / ${sanMax}`;
+    payload.san_atual = sanAtual;
+  } else if(tipo === 'mitos'){
+    mitos = Math.max(0, Math.min(mitos + delta, 99));
+    document.getElementById('mitos-display').textContent = `${mitos}%`;
+    payload.conhecimento_mitos = mitos;
+  }
+  fetch(URL_RECURSOS, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload)
+  }).then(r=>r.json()).then(d=>{
+    if(d.san_maxima){
+      sanMax = d.san_maxima;
+      sanAtual = Math.min(sanAtual, sanMax);
+      document.getElementById('san-display').textContent = `${sanAtual} / ${sanMax}`;
+    }
+  });
+}
+
+async function testarPericia(nome, valor) {
+  const resp = await fetch(URL_TESTAR, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({valor})
+  });
+  const data = await resp.json();
+  const overlay = document.getElementById('resultado-overlay');
+  const box = overlay.querySelector('.resultado-box');
+  overlay.className = `resultado-overlay ${data.nivel}`;
+  document.getElementById('resultado-titulo').textContent = `${nome}: ${data.nivel.toUpperCase()}`;
+  document.getElementById('resultado-desc').textContent = data.descricao;
+  overlay.classList.remove('hidden');
+}
+
+function fecharResultado(){
+  document.getElementById('resultado-overlay').classList.add('hidden');
+}
+</script>
+{% endblock %}

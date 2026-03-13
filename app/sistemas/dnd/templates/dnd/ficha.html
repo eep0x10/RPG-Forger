@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+{% block title %}{{ dados.nome }} – D&D 5e{% endblock %}
+{% block content %}
+<div class="ficha-container">
+
+  <div class="ficha-header">
+    <div class="ficha-avatar-big">{{ dados.nome[0].upper() if dados.nome else '?' }}</div>
+    <div class="ficha-title-area">
+      <h1 class="ficha-nome">{{ dados.nome }}</h1>
+      <p class="ficha-jogador">{{ dados.jogador or 'Sem jogador' }}</p>
+      <div class="ficha-tags">
+        <span class="badge">{{ raca.get('nome', '?') }}</span>
+        <span class="badge">{{ classe.get('nome', '?') }}</span>
+        <span class="badge">Nível {{ dados.nivel }}</span>
+        <span class="badge">{{ dados.alinhamento or '—' }}</span>
+        {% if dados.antecedente %}
+        <span class="badge">{{ dados.antecedente }}</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="ficha-actions">
+      <a href="{{ url_for('dnd.editar_personagem', pid=pid) }}" class="btn btn-secondary">✏️ Editar</a>
+      <form method="POST" action="{{ url_for('dnd.deletar_personagem', pid=pid) }}"
+            onsubmit="return confirm('Deletar {{ dados.nome }}?')">
+        <button type="submit" class="btn btn-danger btn-sm">🗑️</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Stats principais -->
+  <div class="stats-row">
+    <div class="stat-box pv">
+      <span class="stat-lbl">PV</span>
+      <span class="stat-val" id="pv-display">{{ dados.pv_atual or dados.calculado.pv_max }} / {{ dados.calculado.pv_max }}</span>
+      <div class="stat-controls">
+        <button onclick="alterarPV(-1)" class="btn-stat">−</button>
+        <button onclick="alterarPV(1)" class="btn-stat">+</button>
+      </div>
+    </div>
+    <div class="stat-box">
+      <span class="stat-lbl">CA</span>
+      <span class="stat-val">{{ dados.calculado.ca }}</span>
+    </div>
+    <div class="stat-box">
+      <span class="stat-lbl">Prof.</span>
+      <span class="stat-val">+{{ dados.calculado.bonus_prof }}</span>
+    </div>
+    <div class="stat-box">
+      <span class="stat-lbl">Iniciativa</span>
+      <span class="stat-val">{{ '+' if dados.calculado.iniciativa >= 0 else '' }}{{ dados.calculado.iniciativa }}</span>
+    </div>
+    <div class="stat-box">
+      <span class="stat-lbl">Velocidade</span>
+      <span class="stat-val">{{ dados.calculado.velocidade }}m</span>
+    </div>
+    <div class="stat-box">
+      <span class="stat-lbl">Percepção</span>
+      <span class="stat-val">{{ dados.calculado.percepcao_passiva }}</span>
+    </div>
+    <div class="stat-box xp">
+      <span class="stat-lbl">XP</span>
+      <span class="stat-val" id="xp-display">{{ dados.xp or 0 }}</span>
+      {% if dados.calculado.xp_proximo %}
+      <span class="stat-sub">/ {{ dados.calculado.xp_proximo }} próximo</span>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Atributos -->
+  <div class="section-card">
+    <h2 class="section-title">Atributos</h2>
+    <div class="attrs-display">
+      {% for attr in atributos %}
+      {% set val = dados.atributos.get(attr, 10) %}
+      {% set mod = dados.calculado['mod_' + attr] %}
+      <div class="attr-display-block">
+        <span class="adb-label">{{ atributos_abrev[attr] }}</span>
+        <span class="adb-value">{{ val }}</span>
+        <span class="adb-mod">{{ '+' if mod >= 0 else '' }}{{ mod }}</span>
+        <span class="adb-save {% if attr in dados.calculado.saves_prof %}save-prof{% endif %}">
+          ST {{ '+' if dados.calculado.saves[attr] >= 0 else '' }}{{ dados.calculado.saves[attr] }}
+        </span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Magia -->
+  {% if dados.calculado.cd_magia %}
+  <div class="section-card">
+    <h2 class="section-title">Magia</h2>
+    <div class="magia-row">
+      <div class="magia-box">
+        <span class="magia-lbl">CD de Magia</span>
+        <span class="magia-val">{{ dados.calculado.cd_magia }}</span>
+      </div>
+      <div class="magia-box">
+        <span class="magia-lbl">Bônus de Ataque</span>
+        <span class="magia-val">+{{ dados.calculado.bonus_ataque_magia }}</span>
+      </div>
+      <div class="magia-box">
+        <span class="magia-lbl">Atributo de Magia</span>
+        <span class="magia-val">{{ atributos_abrev.get(dados.calculado.atributo_magia, '?') }}</span>
+      </div>
+    </div>
+    {% if dados.calculado.slots_magia %}
+    <div class="slots-grid" style="margin-top:.75rem">
+      {% for i in range(9) %}
+      {% if dados.calculado.slots_magia[i] > 0 %}
+      <div class="slot-box">
+        <span class="slot-nivel">Nível {{ i+1 }}</span>
+        <span class="slot-val">{{ dados.calculado.slots_magia[i] }} slots</span>
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- Perícias -->
+  <div class="section-card">
+    <h2 class="section-title">Perícias</h2>
+    <div class="pericias-display">
+      {% for nome_p, info in dados.calculado.pericias.items() %}
+      <div class="pericia-row {{ 'prof' if info.proficiente else '' }} {{ 'exp' if info.expertise else '' }}">
+        <span class="prow-prof">{{ '◆' if info.expertise else ('●' if info.proficiente else '○') }}</span>
+        <span class="prow-nome">{{ nome_p }}</span>
+        <span class="prow-total">{{ '+' if info.total >= 0 else '' }}{{ info.total }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Equipamento -->
+  <div class="section-card">
+    <h2 class="section-title">Equipamento</h2>
+    <p><strong>Armadura:</strong>
+      {% if dados.armadura_tipo == 'nenhuma' %}Sem armadura
+      {% elif dados.armadura_tipo == 'leve' %}Armadura Leve
+      {% elif dados.armadura_tipo == 'media' %}Armadura Média
+      {% elif dados.armadura_tipo == 'pesada' %}Armadura Pesada
+      {% else %}{{ dados.armadura_tipo }}{% endif %}
+      {% if dados.escudo %} + Escudo{% endif %}
+    </p>
+    {% if dados.arma_principal %}
+    <p><strong>Arma:</strong> {{ dados.arma_principal }}</p>
+    {% endif %}
+  </div>
+
+  <!-- Notas -->
+  {% if dados.notas %}
+  <div class="section-card">
+    <h2 class="section-title">Notas</h2>
+    <p style="white-space:pre-wrap;font-size:.88rem;color:var(--text-muted)">{{ dados.notas }}</p>
+  </div>
+  {% endif %}
+
+</div>
+
+<style>
+.ficha-container{max-width:900px;margin:0 auto}
+.ficha-header{display:flex;align-items:flex-start;gap:1.5rem;margin-bottom:1.5rem;flex-wrap:wrap}
+.ficha-avatar-big{width:64px;height:64px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.6rem;flex-shrink:0}
+.ficha-title-area{flex:1}
+.ficha-nome{font-size:1.6rem;font-weight:700;margin:0 0 .2rem}
+.ficha-jogador{color:var(--text-muted);font-size:.85rem;margin:0 0 .5rem}
+.ficha-tags{display:flex;flex-wrap:wrap;gap:.4rem}
+.badge{font-size:.72rem;padding:.2rem .55rem;border-radius:99px;background:rgba(124,58,237,.15);color:var(--accent-light);border:1px solid rgba(124,58,237,.25)}
+.ficha-actions{display:flex;gap:.5rem;align-items:flex-start;flex-shrink:0}
+.stats-row{display:flex;flex-wrap:wrap;gap:.75rem;margin-bottom:1.25rem}
+.stat-box{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:.75rem 1rem;min-width:85px;text-align:center}
+.stat-box.pv{border-color:rgba(239,68,68,.4)}
+.stat-box.xp{border-color:rgba(245,158,11,.3)}
+.stat-lbl{display:block;font-size:.65rem;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted);margin-bottom:.2rem}
+.stat-val{display:block;font-size:1.15rem;font-weight:700}
+.stat-sub{display:block;font-size:.68rem;color:var(--text-muted)}
+.stat-controls{display:flex;gap:.3rem;justify-content:center;margin-top:.4rem}
+.btn-stat{background:var(--bg-input);border:1px solid var(--border);border-radius:5px;color:var(--text);width:28px;height:24px;cursor:pointer;font-size:.9rem}
+.section-card{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:1.25rem;margin-bottom:1rem}
+.section-title{font-size:.85rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin:0 0 1rem}
+.attrs-display{display:flex;flex-wrap:wrap;gap:.75rem}
+.attr-display-block{background:var(--bg-input);border:1px solid var(--border);border-radius:8px;padding:.6rem .9rem;min-width:80px;text-align:center}
+.adb-label{display:block;font-size:.6rem;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted)}
+.adb-value{display:block;font-size:1.3rem;font-weight:700}
+.adb-mod{display:block;font-size:.82rem;color:var(--accent-light)}
+.adb-save{display:block;font-size:.68rem;color:var(--text-muted);margin-top:.15rem}
+.save-prof{color:var(--accent-light);font-weight:700}
+.magia-row{display:flex;gap:1rem;flex-wrap:wrap}
+.magia-box{background:var(--bg-input);border:1px solid var(--border);border-radius:8px;padding:.5rem .9rem;text-align:center}
+.magia-lbl{display:block;font-size:.65rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.3px}
+.magia-val{display:block;font-size:1.1rem;font-weight:700;color:var(--accent-light)}
+.slots-grid{display:flex;flex-wrap:wrap;gap:.5rem}
+.slot-box{background:var(--bg-input);border:1px solid var(--border);border-radius:7px;padding:.4rem .7rem;text-align:center}
+.slot-nivel{display:block;font-size:.65rem;color:var(--text-muted)}
+.slot-val{display:block;font-size:.82rem;font-weight:600}
+.pericias-display{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.25rem}
+.pericia-row{display:flex;align-items:center;gap:.4rem;padding:.3rem .5rem;border-radius:5px;font-size:.82rem}
+.pericia-row.prof{background:rgba(124,58,237,.08);border-left:2px solid var(--accent)}
+.pericia-row.exp{background:rgba(124,58,237,.15);border-left:3px solid var(--accent-light)}
+.prow-prof{color:var(--accent);width:14px;flex-shrink:0}
+.prow-nome{flex:1;font-weight:500}
+.prow-total{font-weight:700;min-width:28px;text-align:right;color:var(--accent-light)}
+</style>
+{% endblock %}
+{% block scripts %}
+<script>
+const PID = {{ pid }};
+const URL_ATUALIZAR = "{{ url_for('dnd.atualizar_pv', pid=pid) }}";
+let pvAtual = {{ dados.pv_atual or dados.calculado.pv_max }};
+let pvMax = {{ dados.calculado.pv_max }};
+
+function alterarPV(delta) {
+  pvAtual = Math.max(0, Math.min(pvAtual + delta, pvMax));
+  document.getElementById('pv-display').textContent = `${pvAtual} / ${pvMax}`;
+  fetch(URL_ATUALIZAR, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({pv_atual: pvAtual})
+  });
+}
+</script>
+{% endblock %}

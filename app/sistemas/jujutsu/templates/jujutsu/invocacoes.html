@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+{% block title %}Invocações de {{ dados.nome }}{% endblock %}
+
+{% block content %}
+<div class="page-container">
+  <div class="page-header">
+    <div>
+      <a href="{{ url_for('jujutsu.ver_personagem', pid=pid) }}" class="btn btn-ghost btn-sm">← {{ dados.nome }}</a>
+      <h2 style="margin-top:0.5rem">🐉 Invocações</h2>
+    </div>
+    <a href="{{ url_for('jujutsu.criar_invocacao', pid=pid) }}" class="btn btn-primary">+ Nova Invocação</a>
+  </div>
+
+  {% if not invocacoes %}
+  <div class="empty-state">
+    <div class="empty-icon">🐉</div>
+    <h3>Sem invocações</h3>
+    <p class="text-muted">Crie sua primeira invocação para começar a controlar shikigamis, marionetes ou maldições domadas.</p>
+    <a href="{{ url_for('jujutsu.criar_invocacao', pid=pid) }}" class="btn btn-primary btn-lg" style="margin-top:1rem">Criar Invocação</a>
+  </div>
+  {% else %}
+  <div class="invs-grid">
+    {% for inv in invocacoes %}
+    {% set grau_nome = {'4':'4° Grau','3':'3° Grau','2':'2° Grau','1':'1° Grau','especial':'Grau Especial'} %}
+    {% set tipo_icone = {'shikigami':'🌀','marionete':'🤖','maldicao_domada':'👹'} %}
+    {% set tipo_nome = {'shikigami':'Shikigami','marionete':'Marionete','maldicao_domada':'Maldição Domada'} %}
+    {% set calc = inv.get('calculado', {}) %}
+    <div class="inv-card">
+      <div class="inv-card-header">
+        <div>
+          <div class="inv-nome">{{ tipo_icone.get(inv.tipo,'🐉') }} {{ inv.nome }}</div>
+          <div class="inv-tags">
+            <span class="badge badge-grau">{{ grau_nome.get(inv.grau, inv.grau) }}</span>
+            <span class="badge badge-spec">{{ tipo_nome.get(inv.tipo, inv.tipo) }}</span>
+          </div>
+        </div>
+        <div class="inv-card-actions">
+          <a href="{{ url_for('jujutsu.editar_invocacao', pid=pid, iid=loop.index0) }}" class="btn btn-sm btn-secondary">✏️ Editar</a>
+          <form method="POST" action="{{ url_for('jujutsu.deletar_invocacao', pid=pid, iid=loop.index0) }}"
+                onsubmit="return confirm('Deletar {{ inv.nome }} permanentemente?')" style="display:inline">
+            <button class="btn btn-sm btn-danger">🗑️</button>
+          </form>
+        </div>
+      </div>
+
+      {% if inv.intermediario %}
+      <div class="inv-intermediario">🔗 Intermediário: <em>{{ inv.intermediario }}</em></div>
+      {% endif %}
+
+      <!-- Stats Bar -->
+      <div class="inv-stats-row">
+        <!-- PV -->
+        <div class="inv-stat-pv">
+          <div class="inv-stat-label">Pontos de Vida</div>
+          <div class="inv-pv-bar-wrap">
+            {% set pv_max = calc.get('pv_max', 1) %}
+            {% set pv_atual = inv.get('pv_atual', pv_max) %}
+            {% set pct = [(pv_atual / pv_max * 100), 100]|min if pv_max > 0 else 0 %}
+            <div class="inv-pv-bar" style="--pct:{{ pct }}%">
+              <div class="inv-pv-fill" style="width:{{ pct }}%"></div>
+            </div>
+            <div class="inv-pv-nums">
+              <span class="inv-pv-atual clickable" onclick="editarPVInv({{ loop.index0 }}, {{ pv_atual }}, {{ pv_max }})"
+                    id="inv-pv-{{ loop.index0 }}">{{ pv_atual }}</span>
+              / <span>{{ pv_max }}</span>
+            </div>
+          </div>
+          <div class="inv-pv-quick">
+            <button onclick="alterarPVInv({{ loop.index0 }}, -1)" class="btn-pv btn-pv-down">−1</button>
+            <button onclick="alterarPVInv({{ loop.index0 }}, -5)" class="btn-pv btn-pv-down">−5</button>
+            <button onclick="alterarPVInv({{ loop.index0 }}, 1)" class="btn-pv btn-pv-up">+1</button>
+            <button onclick="alterarPVInv({{ loop.index0 }}, 5)" class="btn-pv btn-pv-up">+5</button>
+            <button onclick="curarInv({{ loop.index0 }}, {{ pv_max }})" class="btn-pv btn-pv-full">✓</button>
+          </div>
+        </div>
+
+        <!-- Key Stats -->
+        <div class="inv-stats-nums">
+          <div class="inv-stat-box"><div class="inv-stat-n">{{ calc.get('defesa','?') }}</div><div class="inv-stat-l">DEF</div></div>
+          <div class="inv-stat-box"><div class="inv-stat-n">{{ calc.get('custo_pe_total','?') }}</div><div class="inv-stat-l">PE Custo</div></div>
+          <div class="inv-stat-box"><div class="inv-stat-n">{{ calc.get('bonus_invocacao', 0)|int }}</div><div class="inv-stat-l">Bônus Inv.</div></div>
+          <div class="inv-stat-box"><div class="inv-stat-n">{{ calc.get('deslocamento', 9) }}m</div><div class="inv-stat-l">Desloc.</div></div>
+          <div class="inv-stat-box"><div class="inv-stat-n">{{ calc.get('alcance', 6) }}m</div><div class="inv-stat-l">Alcance</div></div>
+        </div>
+      </div>
+
+      <!-- Atributos -->
+      <div class="inv-atribs-row">
+        {% for a, lbl in [('forca','FOR'),('destreza','DES'),('constituicao','CON'),('inteligencia','INT'),('sabedoria','SAB'),('presenca','PRE')] %}
+        {% set val = inv.atributos.get(a, 8) %}
+        {% set mod = (val - 10) // 2 %}
+        <div class="inv-atrib-mini">
+          <div class="inv-atrib-label">{{ lbl }}</div>
+          <div class="inv-atrib-val">{{ val }}</div>
+          <div class="inv-atrib-mod {{ 'pos' if mod >= 0 else 'neg' }}">{{ '+' if mod >= 0 else '' }}{{ mod }}</div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <!-- Perícias -->
+      {% if inv.pericias_treinadas %}
+      <div class="inv-pericias">
+        <span class="text-muted" style="font-size:0.8rem">Perícias: </span>
+        {% for p in inv.pericias_treinadas %}
+        <span class="pericia-tag">{{ p }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <!-- Ações -->
+      {% if inv.acoes %}
+      <div class="inv-secao">
+        <div class="inv-secao-title">⚡ Ações</div>
+        {% for acao in inv.acoes %}
+        <div class="inv-acao-item {{ 'acao-simples' if acao.tipo == 'simples' else 'acao-complexa' }}">
+          <div class="inv-acao-header">
+            <strong>{{ acao.nome }}</strong>
+            <span class="badge" style="font-size:0.65rem">{{ 'Simples' if acao.tipo == 'simples' else 'Complexa' }}</span>
+            {% if acao.custo_pe %}<span class="badge badge-pe" style="font-size:0.65rem">{{ acao.custo_pe }} PE</span>{% endif %}
+          </div>
+          {% if acao.get('dano') %}<div class="inv-acao-dano">🎲 {{ acao.dano }}{% if acao.get('tipo_dano') %} ({{ acao.tipo_dano }}){% endif %}</div>{% endif %}
+          {% if acao.desc %}<div class="inv-acao-desc text-muted" style="font-size:0.85rem">{{ acao.desc }}</div>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <!-- Características -->
+      {% if inv.caracteristicas %}
+      <div class="inv-secao">
+        <div class="inv-secao-title">✨ Características</div>
+        {% for carac in inv.caracteristicas %}
+        <div class="inv-carac-item">
+          <strong>{{ carac.nome }}</strong>
+          {% if carac.desc %}: <span class="text-muted" style="font-size:0.85rem">{{ carac.desc }}</span>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <!-- Descrição -->
+      {% if inv.descricao %}
+      <div class="inv-desc text-muted" style="font-size:0.85rem;margin-top:0.5rem;border-top:1px solid var(--border);padding-top:0.5rem">
+        {{ inv.descricao }}
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+
+<script>
+const PID = {{ pid }};
+
+async function alterarPVInv(iid, delta) {
+  const el = document.getElementById(`inv-pv-${iid}`);
+  const pv = parseInt(el.textContent) + delta;
+  await setPVInv(iid, pv);
+}
+
+async function curarInv(iid, pvMax) {
+  await setPVInv(iid, pvMax);
+}
+
+async function editarPVInv(iid, atual, max) {
+  const novo = prompt(`PV atual (máx ${max}):`, atual);
+  if (novo !== null && !isNaN(parseInt(novo))) {
+    await setPVInv(iid, parseInt(novo));
+  }
+}
+
+async function setPVInv(iid, pv) {
+  const resp = await fetch(`{{ url_for("jujutsu.atualizar_pv_invocacao", pid=pid, iid=0) }}`.replace("/0", `/${iid}`), {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({pv_atual: pv})
+  });
+  if (resp.ok) {
+    const data = await resp.json();
+    document.getElementById(`inv-pv-${iid}`).textContent = data.pv_atual;
+    // update bar
+    const bar = document.querySelectorAll('.inv-pv-fill')[iid];
+    if (bar) bar.style.width = Math.min(100, data.pv_atual / data.pv_max * 100) + '%';
+  }
+}
+</script>
+{% endblock %}

@@ -1,4 +1,4 @@
-# RPG Forger — Feiticeiros & Maldições
+# RPG Forger
 
 Aplicação web para criação e gerenciamento de fichas de personagem do sistema **Feiticeiros & Maldições** (F&M), um RPG de mesa baseado no universo de Jujutsu Kaisen.
 

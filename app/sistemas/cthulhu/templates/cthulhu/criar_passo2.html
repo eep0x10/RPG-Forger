@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}Call of Cthulhu – Criar Investigador (Passo 2){% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">🐙 Criar Investigador – Passo 2: Perícias</h1>
+  <a href="{{ url_for('cthulhu.criar') }}" class="btn btn-ghost">← Voltar</a>
+</div>
+
+<form action="{{ url_for('cthulhu.criar_salvar') }}" method="POST" class="wizard-form">
+
+  <!-- Pontos disponíveis -->
+  <div class="form-section pontos-section">
+    <h2 class="form-section-title">Pontos de Perícia</h2>
+    <div class="pontos-row">
+      <div class="pontos-box">
+        <span class="pontos-lbl">Pontos de Ocupação</span>
+        <span class="pontos-val" id="pts-ocup">{{ dados.pontos_ocupacao_disponiveis }}</span>
+        <span class="pontos-sub">restantes</span>
+      </div>
+      <div class="pontos-box">
+        <span class="pontos-lbl">Pontos de Interesses</span>
+        <span class="pontos-val" id="pts-int">{{ dados.pontos_interesses_disponiveis }}</span>
+        <span class="pontos-sub">restantes</span>
+      </div>
+    </div>
+    <p class="pontos-hint">Distribua os pontos de ocupação nas perícias da sua profissão, e os de interesses em quaisquer outras perícias.</p>
+  </div>
+
+  <!-- Perícias -->
+  {% set pericias_ocup = ocupacao.get('pericias', []) %}
+  <div class="form-section">
+    <h2 class="form-section-title">Perícias de Ocupação — {{ ocupacao.get('nome', '') }}</h2>
+    <div class="pericias-grid">
+      {% for nome_p, info in pericias.items() %}
+      {% if nome_p in pericias_ocup %}
+      <div class="pericia-row pericia-ocup">
+        <span class="pericia-nome">{{ nome_p }}</span>
+        <span class="pericia-base">base {{ info.base }}%</span>
+        <input type="number" name="pericia_{{ nome_p }}" class="pericia-input ocup-input"
+               value="{{ info.base }}" min="{{ info.base }}" max="99" data-base="{{ info.base }}">
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="form-section">
+    <h2 class="form-section-title">Outras Perícias (Interesses)</h2>
+    <div class="pericias-grid">
+      {% for nome_p, info in pericias.items() %}
+      {% if nome_p not in pericias_ocup %}
+      <div class="pericia-row">
+        <span class="pericia-nome">{{ nome_p }}</span>
+        <span class="pericia-base">base {{ info.base }}%</span>
+        <input type="number" name="pericia_{{ nome_p }}" class="pericia-input int-input"
+               value="{{ info.base }}" min="{{ info.base }}" max="99" data-base="{{ info.base }}">
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Detalhes pessoais -->
+  <div class="form-section">
+    <h2 class="form-section-title">Detalhes Pessoais</h2>
+    <div class="form-group">
+      <label class="form-label">Aparência</label>
+      <textarea name="aparencia" class="form-input" rows="2" placeholder="Descrição física..."></textarea>
+    </div>
+    <div class="form-group" style="margin-top:.75rem">
+      <label class="form-label">Traços de Personalidade</label>
+      <textarea name="tracos" class="form-input" rows="2" placeholder="Maneirismos, hábitos..."></textarea>
+    </div>
+    <div class="form-group" style="margin-top:.75rem">
+      <label class="form-label">Ideologia / Crenças</label>
+      <textarea name="ideologia" class="form-input" rows="2" placeholder="O que acredita?"></textarea>
+    </div>
+    <div class="form-group" style="margin-top:.75rem">
+      <label class="form-label">Equipamentos & Posses</label>
+      <textarea name="equipamentos" class="form-input" rows="2" placeholder="Itens importantes, armas, ferramentas..."></textarea>
+    </div>
+    <div class="form-group" style="margin-top:.75rem">
+      <label class="form-label">Notas Livres</label>
+      <textarea name="notas" class="form-input" rows="3" placeholder="Anotações, objetivos, conexões..."></textarea>
+    </div>
+  </div>
+
+  <div class="wizard-footer">
+    <button type="submit" class="btn btn-primary btn-lg">✓ Criar Investigador</button>
+  </div>
+</form>
+
+<style>
+.form-section{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:1.5rem;margin-bottom:1.25rem}
+.form-section-title{font-size:.9rem;font-weight:700;color:var(--accent-light);text-transform:uppercase;letter-spacing:.5px;margin:0 0 1.25rem}
+.form-group{display:flex;flex-direction:column;gap:.4rem}
+.form-label{font-size:.82rem;font-weight:600;color:var(--text-muted)}
+.form-input{background:var(--bg-input);border:1px solid var(--border);border-radius:8px;padding:.55rem .75rem;color:var(--text);font-size:.9rem;width:100%}
+.pontos-row{display:flex;gap:1.5rem;margin-bottom:.75rem}
+.pontos-box{background:var(--bg-input);border:1px solid var(--border);border-radius:10px;padding:.75rem 1.25rem;text-align:center}
+.pontos-lbl{display:block;font-size:.72rem;color:var(--text-muted);margin-bottom:.2rem}
+.pontos-val{display:block;font-size:1.5rem;font-weight:700;color:var(--accent-light)}
+.pontos-sub{display:block;font-size:.68rem;color:var(--text-muted)}
+.pontos-hint{font-size:.8rem;color:var(--text-muted);margin:0}
+.pericias-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:.4rem}
+.pericia-row{display:flex;align-items:center;gap:.5rem;padding:.35rem .6rem;border-radius:6px;background:var(--bg-input);border:1px solid var(--border);font-size:.82rem}
+.pericia-ocup{border-color:rgba(124,58,237,.3);background:rgba(124,58,237,.06)}
+.pericia-nome{flex:1;font-weight:600}
+.pericia-base{font-size:.7rem;color:var(--text-muted);white-space:nowrap}
+.pericia-input{width:56px;text-align:center;background:var(--bg-card);border:1px solid var(--border);border-radius:5px;padding:.2rem;color:var(--text);font-size:.85rem}
+.wizard-footer{display:flex;justify-content:flex-end;margin-top:1.5rem}
+</style>
+{% endblock %}
+{% block scripts %}
+<script>
+const ptsOcup = {{ dados.pontos_ocupacao_disponiveis }};
+const ptsInt = {{ dados.pontos_interesses_disponiveis }};
+
+function calcUsados(selector){
+  let usado = 0;
+  document.querySelectorAll(selector).forEach(inp => {
+    const base = parseInt(inp.dataset.base) || 0;
+    const val = parseInt(inp.value) || base;
+    usado += Math.max(0, val - base);
+  });
+  return usado;
+}
+
+function atualizarPontos(){
+  const usadoOcup = calcUsados('.ocup-input');
+  const usadoInt = calcUsados('.int-input');
+  document.getElementById('pts-ocup').textContent = ptsOcup - usadoOcup;
+  document.getElementById('pts-int').textContent = ptsInt - usadoInt;
+}
+
+document.querySelectorAll('.pericia-input').forEach(inp => {
+  inp.addEventListener('input', atualizarPontos);
+});
+atualizarPontos();
+</script>
+{% endblock %}

@@ -14,7 +14,7 @@
   <h2 class="dash-section-title">🎲 Sistemas de RPG</h2>
   <div class="systems-grid">
 
-    <a href="{{ url_for('sistema_jujutsu') }}" class="system-card system-active">
+    <a href="{{ url_for('jujutsu.index') }}" class="system-card system-active">
       <div class="system-icon">⚡</div>
       <div class="system-info">
         <h3 class="system-nome">Feiticeiros & Maldições</h3>
@@ -23,14 +23,32 @@
       <span class="system-badge">Disponível</span>
     </a>
 
-    <div class="system-card system-locked">
+    <a href="{{ url_for('old_dragon.index') }}" class="system-card system-active">
       <div class="system-icon">🐉</div>
       <div class="system-info">
         <h3 class="system-nome">Old Dragon 2e</h3>
         <p class="system-desc">RPG clássico de fantasia medieval com classes e raças tradicionais.</p>
       </div>
-      <span class="system-badge system-badge-locked">Em breve</span>
-    </div>
+      <span class="system-badge">Disponível</span>
+    </a>
+
+    <a href="{{ url_for('dnd.index') }}" class="system-card system-active">
+      <div class="system-icon">⚔️</div>
+      <div class="system-info">
+        <h3 class="system-nome">D&D 5e</h3>
+        <p class="system-desc">Dungeons & Dragons 5ª Edição. O RPG mais popular do mundo.</p>
+      </div>
+      <span class="system-badge">Disponível</span>
+    </a>
+
+    <a href="{{ url_for('cthulhu.index') }}" class="system-card system-active">
+      <div class="system-icon">🐙</div>
+      <div class="system-info">
+        <h3 class="system-nome">Call of Cthulhu 7e</h3>
+        <p class="system-desc">Horror cósmico investigativo. Sanidade, mitos e horrores antigos.</p>
+      </div>
+      <span class="system-badge">Disponível</span>
+    </a>
 
   </div>
 </section>

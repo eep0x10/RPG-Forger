@@ -1,0 +1,488 @@
+{% extends "base.html" %}
+{% block title %}Criar Personagem – Passo 1{% endblock %}
+
+{% block content %}
+<div class="wizard-container">
+  <!-- Progress -->
+  <div class="wizard-progress">
+    <div class="step active">
+      <div class="step-num">1</div>
+      <div class="step-label">Identidade</div>
+    </div>
+    <div class="step-line"></div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-label">Origem</div>
+    </div>
+    <div class="step-line"></div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-label">Especialização</div>
+    </div>
+    <div class="step-line"></div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-label">Equipamento</div>
+    </div>
+    <div class="step-line"></div>
+    <div class="step">
+      <div class="step-num">5</div>
+      <div class="step-label">Revisão</div>
+    </div>
+  </div>
+
+  <form action="{{ url_for('jujutsu.criar_passo2') }}" method="POST" class="wizard-form">
+    <div class="wizard-header">
+      <h2>Passo 1: Identidade & Atributos</h2>
+      <p>Defina quem é o seu personagem e distribua seus atributos base.</p>
+    </div>
+
+    <!-- Dados pessoais -->
+    <div class="form-section">
+      <h3 class="section-title">📋 Dados Pessoais</h3>
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label">Nome do Personagem *</label>
+          <input type="text" name="nome" class="form-input" placeholder="Ex: Yuuji Itadori" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Nome do Jogador</label>
+          <input type="text" name="jogador" class="form-input" placeholder="Seu nome">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Técnica Amaldiçoada</label>
+          <input type="text" name="tecnica" class="form-input" placeholder="Ex: Proporções, Ilimitado…">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Domínio Inato</label>
+          <input type="text" name="dominio_inato" class="form-input" placeholder="O espaço interior do personagem">
+        </div>
+      </div>
+    </div>
+
+    <!-- Aspectos Pessoais -->
+    <div class="form-section">
+      <h3 class="section-title">🧠 Aspectos Pessoais</h3>
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label">Traços de Personalidade</label>
+          <textarea name="tracos" class="form-input form-textarea" placeholder="Como pensa, sente e age…"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ideais</label>
+          <textarea name="ideais" class="form-input form-textarea" placeholder="Princípios e valores que guiam o personagem…"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ligações</label>
+          <textarea name="ligacoes" class="form-input form-textarea" placeholder="Pessoas, lugares e objetos importantes…"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Complicações</label>
+          <textarea name="complicacoes" class="form-input form-textarea" placeholder="Fraquezas e obstáculos…"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Atributos -->
+    <div class="form-section">
+      <h3 class="section-title">⚔️ Atributos</h3>
+
+      <div class="metodo-selector">
+        <label class="metodo-option">
+          <input type="radio" name="metodo_atributos" value="fixos" checked onchange="setMetodo('fixos')">
+          <div class="metodo-card">
+            <div class="metodo-icon">🎯</div>
+            <div class="metodo-nome">Valores Fixos</div>
+            <div class="metodo-desc">Distribua 15, 14, 13, 12, 10 e 8</div>
+          </div>
+        </label>
+        <label class="metodo-option">
+          <input type="radio" name="metodo_atributos" value="pontos" onchange="setMetodo('pontos')">
+          <div class="metodo-card">
+            <div class="metodo-icon">🎰</div>
+            <div class="metodo-nome">Compra por Pontos</div>
+            <div class="metodo-desc">17 pontos, valor 8–15</div>
+          </div>
+        </label>
+        <label class="metodo-option">
+          <input type="radio" name="metodo_atributos" value="rolagem" onchange="setMetodo('rolagem')">
+          <div class="metodo-card">
+            <div class="metodo-icon">🎲</div>
+            <div class="metodo-nome">Rolagem</div>
+            <div class="metodo-desc">4d6, descarte o menor</div>
+          </div>
+        </label>
+      </div>
+
+      <!-- Valores Fixos -->
+      <div id="metodo-fixos" class="metodo-content">
+        <div class="fixos-info">
+          <p>Arraste ou clique nos valores para atribuir a cada atributo.</p>
+          <div class="valores-pool" id="valores-pool">
+            {% for v in valores_fixos %}
+            <span class="valor-chip" draggable="true" data-valor="{{ v }}" onclick="atribuirValor({{ v }})">{{ v }}</span>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Compra por Pontos -->
+      <div id="metodo-pontos" class="metodo-content" style="display:none">
+        <div class="pontos-info">
+          <div class="pontos-counter">
+            Pontos disponíveis: <strong id="pontos-disp">17</strong>
+          </div>
+          <p class="text-muted">Custo: 8(+2) 9(+1) 10(0) 11(2) 12(3) 13(4) 14(5) 15(7)</p>
+        </div>
+      </div>
+
+      <!-- Rolagem -->
+      <div id="metodo-rolagem" class="metodo-content" style="display:none">
+        <button type="button" class="btn btn-secondary" onclick="rolarTodos()">🎲 Rolar Todos</button>
+        <div class="rolagem-resultados" id="rolagem-resultados"></div>
+      </div>
+
+      <!-- Grid de atributos -->
+      <div class="atributos-grid">
+        {% set atrib_info = {
+          'forca': {'icon': '💪', 'desc': 'Poder muscular e físico'},
+          'destreza': {'icon': '⚡', 'desc': 'Agilidade, reflexos e rapidez'},
+          'constituicao': {'icon': '🛡️', 'desc': 'Resistência e vigor'},
+          'inteligencia': {'icon': '🧠', 'desc': 'Raciocínio e intelecto'},
+          'sabedoria': {'icon': '👁️', 'desc': 'Percepção e experiência'},
+          'presenca': {'icon': '✨', 'desc': 'Força de personalidade'}
+        } %}
+        {% for attr in atributos %}
+        <div class="atrib-card" id="card-{{ attr }}" data-attr="{{ attr }}" draggable="false">
+          <div class="atrib-header">
+            <span class="atrib-icon">{{ atrib_info[attr]['icon'] }}</span>
+            <div>
+              <div class="atrib-nome">{{ atributos_labels[attr] }}</div>
+              <div class="atrib-desc">{{ atrib_info[attr]['desc'] }}</div>
+            </div>
+          </div>
+          <div class="atrib-controles" draggable="false">
+            <button type="button" class="btn-round" onclick="alterarAtrib('{{ attr }}', -1)">−</button>
+            <input type="number" id="input-{{ attr }}" name="attr_{{ attr }}"
+                   class="atrib-valor" value="10" min="1" max="20"
+                   onchange="atualizarMod('{{ attr }}')">
+            <button type="button" class="btn-round" onclick="alterarAtrib('{{ attr }}', 1)">+</button>
+          </div>
+          <div class="atrib-mod" id="mod-{{ attr }}">+0</div>
+          <div class="atrib-rolagem-result" id="rolagem-{{ attr }}"></div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div id="erros-form" class="form-erros" style="display:none"></div>
+    <div class="wizard-actions">
+      <a href="{{ url_for('jujutsu.index') }}" class="btn btn-ghost">Cancelar</a>
+      <button type="submit" class="btn btn-primary btn-lg">Próximo: Origem →</button>
+    </div>
+  </form>
+</div>
+
+<style>
+.valor-chip { cursor: grab; transition: transform .1s, opacity .2s; user-select: none; }
+.valor-chip:active { cursor: grabbing; }
+.valor-chip.used { opacity: .25; pointer-events: none; cursor: default; }
+.valor-chip.dragging-source { opacity: .4; transform: scale(.9); }
+.valores-pool.pool-drag-over { border: 2px dashed var(--accent); border-radius: 8px; background: rgba(124,58,237,.06); }
+.atrib-card[draggable="true"] { cursor: grab; }
+.atrib-card[draggable="true"]:active { cursor: grabbing; }
+.atrib-card.drag-over { border-color: var(--accent) !important; box-shadow: 0 0 14px rgba(124,58,237,.35); }
+.atrib-card.erro { border-color: rgba(239,68,68,.7) !important; background: rgba(239,68,68,.06); }
+.form-erros { background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.35); border-radius: 10px; padding: .75rem 1rem; margin-bottom: 1rem; display: flex; flex-direction: column; gap: .3rem; color: #f87171; font-size: .85rem; }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const VALORES_FIXOS = [15, 14, 13, 12, 10, 8];
+const CUSTOS_PONTOS = {8: -2, 9: -1, 10: 0, 11: 2, 12: 3, 13: 4, 14: 5, 15: 7};
+const ATRIBUTOS = ['forca', 'destreza', 'constituicao', 'inteligencia', 'sabedoria', 'presenca'];
+
+let metodoAtual = 'fixos';
+let valoresUsados = {};   // attrName -> value (apenas no modo fixos)
+let pontosDisp = 17;
+let dragging = null;      // { source: 'pool'|'attr', attrName: null|string, value: number }
+let rolagemCompleta = false;
+
+// ── Utilitários ────────────────────────────────────────────────────────────────
+
+function atualizarMod(attr) {
+  const val = parseInt(document.getElementById(`input-${attr}`).value) || 10;
+  const mod = Math.floor((val - 10) / 2);
+  document.getElementById(`mod-${attr}`).textContent = (mod >= 0 ? '+' : '') + mod;
+}
+
+function setAttrValue(attr, value) {
+  const card = document.getElementById(`card-${attr}`);
+  document.getElementById(`input-${attr}`).value = value;
+  card.setAttribute('draggable', 'true');
+  card.classList.add('assigned');
+  card.classList.remove('erro');
+  atualizarMod(attr);
+}
+
+function clearAttr(attr) {
+  const card = document.getElementById(`card-${attr}`);
+  document.getElementById(`input-${attr}`).value = 10;
+  card.setAttribute('draggable', 'false');
+  card.classList.remove('assigned');
+  atualizarMod(attr);
+}
+
+function atualizarChips() {
+  const pool = document.getElementById('valores-pool');
+  if (!pool) return;
+  const atribuidos = Object.values(valoresUsados);
+  const contagem = {};
+  VALORES_FIXOS.forEach(v => contagem[v] = (contagem[v] || 0) + 1);
+  atribuidos.forEach(v => { if (contagem[v]) contagem[v]--; });
+  const idx = {};
+  pool.querySelectorAll('.valor-chip').forEach(chip => {
+    const v = parseInt(chip.dataset.valor);
+    idx[v] = idx[v] || 0;
+    chip.classList.toggle('used', idx[v] >= (contagem[v] || 0));
+    idx[v]++;
+  });
+}
+
+// ── Modo: métodos ──────────────────────────────────────────────────────────────
+
+function setMetodo(m) {
+  metodoAtual = m;
+  document.querySelectorAll('.metodo-content').forEach(el => el.style.display = 'none');
+  document.getElementById(`metodo-${m}`).style.display = 'block';
+  resetarAtributos();
+}
+
+function resetarAtributos() {
+  valoresUsados = {};
+  dragging = null;
+  rolagemCompleta = false;
+  pontosDisp = 17;
+  ATRIBUTOS.forEach(a => {
+    clearAttr(a);
+    document.getElementById(`input-${a}`).readOnly = (metodoAtual !== 'pontos');
+    document.getElementById(`rolagem-${a}`).textContent = '';
+  });
+  atualizarChips();
+  limparErros();
+  const el = document.getElementById('pontos-disp');
+  if (el) el.textContent = pontosDisp;
+}
+
+// ── Modo fixos: clique ─────────────────────────────────────────────────────────
+
+function atribuirValor(valor) {
+  if (metodoAtual !== 'fixos') return;
+  // Verifica se o valor ainda está disponível na pool
+  const atribuidos = Object.values(valoresUsados);
+  const disponiveis = VALORES_FIXOS.filter(v => {
+    const idx = atribuidos.indexOf(v);
+    if (idx !== -1) { atribuidos.splice(idx, 1); return false; }
+    return true;
+  });
+  if (!disponiveis.includes(valor)) return;
+  // Atribui ao próximo slot vazio
+  for (const a of ATRIBUTOS) {
+    if (valoresUsados[a] === undefined) {
+      valoresUsados[a] = valor;
+      setAttrValue(a, valor);
+      atualizarChips();
+      return;
+    }
+  }
+}
+
+// ── Modo pontos: botões +/− ────────────────────────────────────────────────────
+
+function alterarAtrib(attr, delta) {
+  if (metodoAtual !== 'pontos') return;
+  const inp = document.getElementById(`input-${attr}`);
+  const val = parseInt(inp.value) || 10;
+  const novoVal = Math.max(8, Math.min(15, val + delta));
+  const diff = (CUSTOS_PONTOS[novoVal] || 0) - (CUSTOS_PONTOS[val] || 0);
+  if (diff > 0 && pontosDisp < diff) return;
+  pontosDisp -= diff;
+  inp.value = novoVal;
+  atualizarMod(attr);
+  const el = document.getElementById('pontos-disp');
+  if (el) el.textContent = pontosDisp;
+}
+
+// ── Modo rolagem ───────────────────────────────────────────────────────────────
+
+async function rolarTodos() {
+  rolagemCompleta = false;
+  document.getElementById('rolagem-resultados').innerHTML = '';
+  for (const a of ATRIBUTOS) {
+    const resp = await fetch('{{ url_for("jujutsu.rolar_dados") }}', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({tipo: '4d6drop'})
+    });
+    const data = await resp.json();
+    document.getElementById(`input-${a}`).value = data.resultado;
+    document.getElementById(`rolagem-${a}`).textContent = `[${data.rolls.join(', ')}]`;
+    document.getElementById(`card-${a}`).classList.remove('erro');
+    atualizarMod(a);
+  }
+  rolagemCompleta = true;
+  limparErros();
+}
+
+// ── Drag & Drop ────────────────────────────────────────────────────────────────
+
+function setupDragDrop() {
+  // Pool chips: arrastar para attr card
+  document.querySelectorAll('#valores-pool .valor-chip').forEach(chip => {
+    chip.addEventListener('dragstart', e => {
+      if (chip.classList.contains('used')) { e.preventDefault(); return; }
+      dragging = { source: 'pool', attrName: null, value: parseInt(chip.dataset.valor) };
+      chip.classList.add('dragging-source');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    chip.addEventListener('dragend', () => chip.classList.remove('dragging-source'));
+  });
+
+  // Attr cards: drag para trocar, drop para receber
+  document.querySelectorAll('.atrib-card').forEach(card => {
+    const attr = card.dataset.attr;
+
+    card.addEventListener('dragstart', e => {
+      if (!valoresUsados[attr]) { e.preventDefault(); return; }
+      dragging = { source: 'attr', attrName: attr, value: valoresUsados[attr] };
+      card.classList.add('dragging-source');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+
+    card.addEventListener('dragend', () => {
+      card.classList.remove('dragging-source');
+      document.querySelectorAll('.atrib-card').forEach(c => c.classList.remove('drag-over'));
+    });
+
+    card.addEventListener('dragover', e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      document.querySelectorAll('.atrib-card').forEach(c => c.classList.remove('drag-over'));
+      card.classList.add('drag-over');
+    });
+
+    card.addEventListener('dragleave', e => {
+      // só remove se saiu para fora do card (não para um filho)
+      if (!card.contains(e.relatedTarget)) card.classList.remove('drag-over');
+    });
+
+    card.addEventListener('drop', e => {
+      e.preventDefault();
+      card.classList.remove('drag-over');
+      if (!dragging || metodoAtual !== 'fixos') return;
+
+      if (dragging.source === 'pool') {
+        // Pool → card: se o card já tinha valor, ele volta pra pool (via atualizarChips)
+        if (valoresUsados[attr] !== undefined) delete valoresUsados[attr];
+        valoresUsados[attr] = dragging.value;
+        setAttrValue(attr, dragging.value);
+
+      } else if (dragging.source === 'attr' && dragging.attrName !== attr) {
+        // Card → card: troca os valores
+        const destValue = valoresUsados[attr];
+        valoresUsados[attr] = dragging.value;
+        setAttrValue(attr, dragging.value);
+        if (destValue !== undefined) {
+          valoresUsados[dragging.attrName] = destValue;
+          setAttrValue(dragging.attrName, destValue);
+        } else {
+          delete valoresUsados[dragging.attrName];
+          clearAttr(dragging.attrName);
+        }
+      }
+
+      dragging = null;
+      atualizarChips();
+    });
+  });
+
+  // Pool: receber card arrastado de volta (devolve à pool)
+  const pool = document.getElementById('valores-pool');
+  if (pool) {
+    pool.addEventListener('dragover', e => {
+      e.preventDefault();
+      pool.classList.add('pool-drag-over');
+    });
+    pool.addEventListener('dragleave', e => {
+      if (!pool.contains(e.relatedTarget)) pool.classList.remove('pool-drag-over');
+    });
+    pool.addEventListener('drop', e => {
+      e.preventDefault();
+      pool.classList.remove('pool-drag-over');
+      if (!dragging || dragging.source !== 'attr') return;
+      delete valoresUsados[dragging.attrName];
+      clearAttr(dragging.attrName);
+      dragging = null;
+      atualizarChips();
+    });
+  }
+}
+
+// ── Validação ──────────────────────────────────────────────────────────────────
+
+function limparErros() {
+  ATRIBUTOS.forEach(a => document.getElementById(`card-${a}`).classList.remove('erro'));
+  const el = document.getElementById('erros-form');
+  el.innerHTML = '';
+  el.style.display = 'none';
+}
+
+function mostrarErros(msgs) {
+  const el = document.getElementById('erros-form');
+  el.innerHTML = msgs.map(m => `<span>⚠ ${m}</span>`).join('');
+  el.style.display = 'flex';
+  el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function validarFormulario(e) {
+  const erros = [];
+
+  // Nome obrigatório
+  const nome = document.querySelector('[name="nome"]').value.trim();
+  if (!nome) {
+    erros.push('Preencha o nome do personagem.');
+    document.querySelector('[name="nome"]').focus();
+  }
+
+  // Atributos
+  if (metodoAtual === 'fixos') {
+    const vazios = ATRIBUTOS.filter(a => valoresUsados[a] === undefined);
+    if (vazios.length > 0) {
+      const faltam = vazios.length === ATRIBUTOS.length
+        ? 'Nenhum atributo foi preenchido.'
+        : `Faltam ${vazios.length} atributo(s) sem valor atribuído.`;
+      erros.push(faltam + ' Arraste os valores da pool para os atributos.');
+      vazios.forEach(a => document.getElementById(`card-${a}`).classList.add('erro'));
+      ATRIBUTOS.filter(a => valoresUsados[a] !== undefined)
+               .forEach(a => document.getElementById(`card-${a}`).classList.remove('erro'));
+    }
+  } else if (metodoAtual === 'rolagem') {
+    if (!rolagemCompleta) {
+      erros.push('Clique em "Rolar Todos" para gerar os valores dos atributos.');
+      ATRIBUTOS.forEach(a => document.getElementById(`card-${a}`).classList.add('erro'));
+    }
+  }
+
+  if (erros.length > 0) {
+    e.preventDefault();
+    mostrarErros(erros);
+  }
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────────
+ATRIBUTOS.forEach(a => atualizarMod(a));
+setupDragDrop();
+document.querySelector('.wizard-form').addEventListener('submit', validarFormulario);
+</script>
+{% endblock %}
