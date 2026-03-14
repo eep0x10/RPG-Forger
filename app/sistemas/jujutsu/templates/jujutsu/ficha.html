@@ -94,6 +94,33 @@
         {% endif %}
       </div>
 
+      <!-- Níveis de Aptidão -->
+      <div class="ficha-card">
+        <div class="ficha-card-title">🎯 Níveis de Aptidão</div>
+        <div class="apt-niveis-grid">
+          {% for cat in niveis_aptidao_cats %}
+          {% set nivel_atual = niveis_aptidao.get(cat.id, 0) %}
+          {% set label = niveis_aptidao_labels[nivel_atual] %}
+          <div class="apt-nivel-row" data-cat="{{ cat.id }}" title="{{ cat.desc }}">
+            <div class="apt-nivel-header">
+              <span class="apt-nivel-icone">{{ cat.icone }}</span>
+              <span class="apt-nivel-nome">{{ cat.nome }}</span>
+              <span class="apt-nivel-label" id="apt-label-{{ cat.id }}" style="color:{{ label.cor }}">{{ label.nome }}</span>
+            </div>
+            <div class="apt-nivel-pips">
+              {% for i in range(1, 5) %}
+              <div class="apt-pip {% if nivel_atual >= i %}apt-pip-on{% endif %}"
+                   data-cat="{{ cat.id }}"
+                   data-nivel="{{ i }}"
+                   style="{% if nivel_atual >= i %}background:{{ label.cor }};border-color:{{ label.cor }}{% endif %}"
+                   onclick="setNivelAptidao('{{ cat.id }}', {{ i }})"></div>
+              {% endfor %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
       <!-- Valores Derivados -->
       <div class="ficha-card">
         <div class="ficha-card-title">📊 Valores de Combate</div>
@@ -240,55 +267,137 @@
         </div>
       </div>
 
-      <!-- Habilidades -->
+      <!-- Level Up Upgrades -->
       <div class="ficha-card">
-        <div class="ficha-card-title">⚡ Habilidades</div>
-        <div class="habs-ficha-lista">
-          {% for hab in spec.get('habilidades_base', []) %}
-          <div class="hab-ficha-item">
-            <div class="hab-ficha-nome">{{ hab.nome }}
-              <span class="hab-level-badge">Nível {{ hab.nivel }}</span>
-            </div>
-            <div class="hab-ficha-desc">{{ hab.desc }}</div>
-          </div>
-          {% endfor %}
+        <div class="ficha-card-title">⬆ Level Up Upgrades</div>
 
-          {% for nivel_req, lista in spec.get('habilidades_nivel', {}).items() %}
-          {% if dados.nivel >= nivel_req | int %}
-          {% for hab in lista %}
-          <div class="hab-ficha-item desbloqueada">
-            <div class="hab-ficha-nome">{{ hab.split('–')[0] if '–' in hab else hab }}
-              <span class="hab-level-badge">Nível {{ nivel_req }}</span>
+        <div class="luu-wrapper">
+          {% for n in range(1, 21) %}
+          {% set itens = ganhos_por_nivel.get(n, []) %}
+          {% if itens %}
+          {% set desbloqueado = dados.nivel >= n %}
+          <div class="luu-nivel-bloco {% if desbloqueado %}luu-desbloqueado{% else %}luu-bloqueado{% endif %}">
+            <div class="luu-nivel-label">
+              {% if desbloqueado %}
+              <span class="luu-badge-nivel luu-badge-ok">Nível {{ n }}</span>
+              {% else %}
+              <span class="luu-badge-nivel luu-badge-lock">🔒 Nível {{ n }}</span>
+              {% endif %}
             </div>
-            {% if '–' in hab %}
-            <div class="hab-ficha-desc">{{ hab.split('–', 1)[1] }}</div>
-            {% endif %}
+            <div class="luu-itens">
+              {% for item in itens %}
+              {% if item.tipo == 'aptidao' %}
+                {# Aptidão amaldiçoada — escolha inline #}
+                {% set apt_escolhida_id = aptidoes_por_nivel.get(n|string) %}
+                {% set apt_escolhida = todas_aptidoes | selectattr('id', 'equalto', apt_escolhida_id) | list | first if apt_escolhida_id else None %}
+                {% if desbloqueado %}
+                <details class="luu-item luu-tipo-aptidao" id="luu-apt-{{ n }}">
+                  <summary class="luu-item-nome">
+                    🌀 Aptidão Amaldiçoada
+                    {% if apt_escolhida %}
+                    <span class="luu-apt-chosen">{{ apt_escolhida.nome }}</span>
+                    {% else %}
+                    <span class="luu-apt-pending">— escolher</span>
+                    {% endif %}
+                    <span class="luu-expand-hint">▸</span>
+                  </summary>
+                  <div class="luu-item-desc luu-apt-body" data-nivel="{{ n }}">
+                    {% if apt_escolhida %}
+                    <div class="luu-apt-desc-text">{{ apt_escolhida.descricao }}</div>
+                    <button type="button" class="btn btn-xs btn-ghost" onclick="togglePicker({{ n }}); return false;" style="margin-top:0.5rem;font-size:0.75rem">Trocar</button>
+                    {% endif %}
+                    {# Picker (visível quando não escolhida ou ao clicar em Trocar) #}
+                    <div class="luu-apt-picker {% if apt_escolhida %}luu-picker-hidden{% endif %}" data-nivel="{{ n }}">
+                      <p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:0.4rem">Aptidões disponíveis para o nível {{ n }}:</p>
+                      <div class="luu-apt-lista">
+                        {% set apt_ids_usados = aptidoes_por_nivel.values() | list %}
+                        {% set aptidoes_personagem = dados.get('aptidoes', []) %}
+                        {% for apt in todas_aptidoes %}
+                        {% if apt.nivel_req <= dados.nivel %}
+                        {% set prereqs_ok = apt.req | length == 0 or (apt.req | reject('in', aptidoes_personagem) | list | length == 0) %}
+                        {% set ja_outro_nivel = (apt.id in apt_ids_usados) and (aptidoes_por_nivel.get(n|string) != apt.id) %}
+                        <div class="luu-apt-opcao {% if apt_escolhida_id == apt.id %}luu-apt-selecionada{% endif %} {% if ja_outro_nivel or not prereqs_ok %}luu-apt-usada{% endif %}"
+                             data-apt-id="{{ apt.id }}"
+                             data-nivel="{{ n }}"
+                             {% if not ja_outro_nivel and prereqs_ok %}onclick="escolherAptidao({{ n }}, '{{ apt.id }}', this)"{% endif %}>
+                          <div class="luu-apt-opcao-nome">{{ apt.nome }}
+                            {% if apt.nivel_req > 1 %}<span style="font-size:0.68rem;color:var(--text-muted)">(req. nível {{ apt.nivel_req }})</span>{% endif %}
+                            {% if ja_outro_nivel %}<span class="badge" style="font-size:0.65rem;background:var(--bg-input);color:var(--text-muted)">em uso</span>{% endif %}
+                          </div>
+                          <div class="luu-apt-opcao-desc">{{ apt.descricao }}</div>
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                      </div>
+                    </div>
+                  </div>
+                </details>
+                {% endif %}
+              {% elif item.tipo == 'escolha' and desbloqueado %}
+                {# Habilidade de especialização — escolha inline #}
+                {% set hab_escolhida_id = habilidades_por_nivel.get(n|string) %}
+                {% set hab_escolhida = habilidades_catalogadas | selectattr('id', 'equalto', hab_escolhida_id) | list | first if hab_escolhida_id else None %}
+                {% set hab_ids_usados = habilidades_por_nivel.values() | list %}
+                {% set habs_nivel_disponiveis = habilidades_catalogadas | selectattr('nivel', 'le', dados.nivel) | list %}
+                <details class="luu-item luu-tipo-escolha" id="luu-hab-{{ n }}">
+                  <summary class="luu-item-nome">
+                    ✨ Habilidade de Especialização
+                    {% if hab_escolhida %}
+                    <span class="luu-hab-chosen">{{ hab_escolhida.nome }}</span>
+                    {% else %}
+                    <span class="luu-hab-pending">— escolher</span>
+                    {% endif %}
+                    <span class="luu-expand-hint">▸</span>
+                  </summary>
+                  <div class="luu-item-desc luu-hab-body" data-nivel="{{ n }}">
+                    {% if hab_escolhida %}
+                    <div class="luu-hab-desc-text">{{ hab_escolhida.desc }}</div>
+                    <button type="button" class="btn btn-xs btn-ghost" onclick="toggleHabPicker({{ n }}); return false;" style="margin-top:0.5rem;font-size:0.75rem">Trocar</button>
+                    {% endif %}
+                    <div class="luu-hab-picker {% if hab_escolhida %}luu-picker-hidden{% endif %}" data-nivel="{{ n }}">
+                      <p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:0.4rem">Habilidades disponíveis (nível ≤ {{ dados.nivel }}):</p>
+                      {% if habs_nivel_disponiveis %}
+                      <div class="luu-apt-lista">
+                        {% for hab in habs_nivel_disponiveis %}
+                        {% set ja_outro_nivel = (hab.id in hab_ids_usados) and (habilidades_por_nivel.get(n|string) != hab.id) %}
+                        <div class="luu-apt-opcao {% if hab_escolhida_id == hab.id %}luu-apt-selecionada{% endif %} {% if ja_outro_nivel %}luu-apt-usada{% endif %}"
+                             data-hab-id="{{ hab.id }}"
+                             data-nivel="{{ n }}"
+                             {% if not ja_outro_nivel %}onclick="escolherHabilidade({{ n }}, '{{ hab.id }}', this)"{% endif %}>
+                          <div class="luu-apt-opcao-nome">{{ hab.nome }}
+                            {% if hab.nivel > 1 %}<span style="font-size:0.68rem;color:var(--text-muted)">(req. nível {{ hab.nivel }})</span>{% endif %}
+                            {% if ja_outro_nivel %}<span class="badge" style="font-size:0.65rem;background:var(--bg-input);color:var(--text-muted)">em uso</span>{% endif %}
+                          </div>
+                          {% if hab.desc %}<div class="luu-apt-opcao-desc">{{ hab.desc }}</div>{% endif %}
+                        </div>
+                        {% endfor %}
+                      </div>
+                      {% else %}
+                      <p style="font-size:0.8rem;color:var(--text-muted);font-style:italic">Nenhuma habilidade disponível para este nível ainda.</p>
+                      {% endif %}
+                    </div>
+                  </div>
+                </details>
+              {% else %}
+              <details class="luu-item luu-tipo-{{ item.tipo }}">
+                <summary class="luu-item-nome">
+                  {% if item.tipo == 'habilidade' %}⚡{% elif item.tipo == 'escolha' %}✨{% else %}🔹{% endif %}
+                  {{ item.nome }}
+                  {% if item.desc %}<span class="luu-expand-hint">▸</span>{% endif %}
+                </summary>
+                {% if item.desc %}
+                <div class="luu-item-desc">{{ item.desc }}</div>
+                {% else %}
+                <div class="luu-item-desc text-muted" style="font-style:italic">Consulte o livro de regras.</div>
+                {% endif %}
+              </details>
+              {% endif %}
+              {% endfor %}
+            </div>
           </div>
-          {% endfor %}
           {% endif %}
           {% endfor %}
         </div>
-
-        <!-- Próximas habilidades -->
-        {% set prox_habs = [] %}
-        {% for nivel_req, lista in spec.get('habilidades_nivel', {}).items() %}
-        {% if dados.nivel < nivel_req | int %}
-        {% set _ = prox_habs.append((nivel_req, lista)) %}
-        {% endif %}
-        {% endfor %}
-        {% if prox_habs %}
-        <div class="proximas-habs">
-          <div class="proximas-title">🔒 Próximas habilidades</div>
-          {% for nivel_req, lista in prox_habs[:3] %}
-          {% for hab in lista %}
-          <div class="hab-locked">
-            <span class="hab-nivel-lock">Nível {{ nivel_req }}</span>
-            <span>{{ hab.split('–')[0] if '–' in hab else hab }}</span>
-          </div>
-          {% endfor %}
-          {% endfor %}
-        </div>
-        {% endif %}
       </div>
 
       <!-- Talentos/Habilidades -->
@@ -543,34 +652,112 @@
   <div class="ficha-card" style="margin-top:1.5rem">
     <div class="ficha-card-title" style="display:flex;align-items:center;justify-content:space-between">
       <span>🌀 Aptidões & Domínio</span>
-      <div style="display:flex;gap:.4rem">
-        <a href="{{ url_for('jujutsu.gerenciar_aptidoes', pid=pid) }}" class="btn btn-sm btn-secondary">Aptidões</a>
-        <a href="{{ url_for('jujutsu.gerenciar_dominio', pid=pid) }}" class="btn btn-sm btn-secondary">Domínio</a>
-      </div>
+      <a href="{{ url_for('jujutsu.gerenciar_dominio', pid=pid) }}" class="btn btn-sm btn-secondary">Domínio</a>
     </div>
+
     {% if aptidoes_list %}
-    <div style="display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.8rem">
+    <div class="apt-lista-ficha">
       {% for apt_id in aptidoes_list %}
-      <span class="badge" style="font-size:.72rem;background:var(--surface-2);color:var(--text)">{{ apt_id|replace('_',' ')|title }}</span>
+      {% set apt_obj = todas_aptidoes | selectattr('id', 'equalto', apt_id) | list | first %}
+      {% if apt_obj %}
+      <details class="apt-item-ficha">
+        <summary>
+          <span class="apt-item-nome">{{ apt_obj.nome }}</span>
+          <span class="luu-expand-hint">▸</span>
+        </summary>
+        <div class="apt-item-desc">{{ apt_obj.descricao }}</div>
+      </details>
+      {% else %}
+      <div class="apt-item-ficha apt-item-sem-desc">
+        <span class="apt-item-nome">{{ apt_id | replace('_',' ') | title }}</span>
+      </div>
+      {% endif %}
       {% endfor %}
     </div>
+    {% else %}
+    <p class="text-muted" style="font-size:.9rem">Nenhuma aptidão. Escolha via Level Up Upgrades acima.</p>
     {% endif %}
+
     {% if dominio_dados %}
-    <div class="dominio-preview">
+    <div class="dominio-preview" style="margin-top:.8rem;border-top:1px solid var(--border);padding-top:.8rem">
       <span style="font-size:.8rem;color:var(--accent)">🌐 {{ dominio_dados.nome or 'Expansão de Domínio' }}</span>
       {% if dominio_dados.tipo %}
       <span class="badge" style="font-size:.65rem;margin-left:.4rem">{{ dominio_dados.tipo|replace('_',' ')|title }}</span>
       {% endif %}
     </div>
-    {% elif not aptidoes_list %}
-    <p class="text-muted" style="font-size:.9rem">
-      Sem aptidões.
-      <a href="{{ url_for('jujutsu.gerenciar_aptidoes', pid=pid) }}" style="color:var(--accent-light)">Adicionar</a>
-    </p>
     {% endif %}
   </div>
   {% endif %}
 
+  <!-- Botão Catálogo de Aptidões -->
+  <div style="margin-top:1.5rem;text-align:center">
+    <button type="button" class="btn btn-secondary" onclick="document.getElementById('modal-aptidoes').style.display='flex'">
+      📖 Ver Todas as Aptidões
+    </button>
+  </div>
+
+</div>
+
+<!-- Modal Catálogo de Aptidões -->
+<div class="modal-overlay" id="modal-aptidoes" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+  <div class="modal-content" style="max-width:860px;width:95vw;max-height:90vh;display:flex;flex-direction:column">
+    <div class="modal-header">
+      <h3>📖 Catálogo de Aptidões Amaldiçoadas</h3>
+      <button onclick="document.getElementById('modal-aptidoes').style.display='none'" class="modal-close">×</button>
+    </div>
+    <div class="modal-body" style="overflow-y:auto;padding:1rem 1.25rem">
+
+      <!-- Tabs de categoria -->
+      <div class="apt-cat-tabs" id="apt-cat-tabs">
+        {% for cat in aptidoes_categorias %}
+        <button class="apt-cat-tab {% if loop.first %}apt-cat-tab-active{% endif %}"
+                onclick="switchAptTab('{{ cat.id }}')" data-cat="{{ cat.id }}">
+          {{ cat.icone }} {{ cat.nome }}
+        </button>
+        {% endfor %}
+      </div>
+
+      <!-- Painéis por categoria -->
+      {% for cat in aptidoes_categorias %}
+      <div class="apt-cat-panel" id="apt-panel-{{ cat.id }}" style="{{ 'display:block' if loop.first else 'display:none' }}">
+        <p class="apt-cat-panel-desc">{{ cat.desc }} <span style="font-size:.72rem;color:var(--text-muted)">(p. {{ cat.pagina }})</span></p>
+        <div class="apt-catalog-grid">
+          {% for apt in cat.lista %}
+          {% set adquirida = apt.id in dados.get('aptidoes', []) %}
+          {% set nivel_ok = dados.nivel >= apt.nivel_req %}
+          {% set req_ok = apt.req | length == 0 or (apt.req | reject('in', dados.get('aptidoes', [])) | list | length == 0) %}
+          <div class="apt-catalog-card {% if adquirida %}apt-catalog-adquirida{% elif not nivel_ok or not req_ok %}apt-catalog-bloqueada{% endif %}">
+            <div class="apt-catalog-header">
+              <span class="apt-catalog-nome">{{ apt.nome }}</span>
+              <div style="display:flex;align-items:center;gap:.35rem;flex-shrink:0">
+                <span class="apt-catalog-nivel">Nív. {{ apt.nivel_req }}</span>
+                {% if adquirida %}
+                <span class="apt-catalog-badge apt-badge-ok">✓ Adquirida</span>
+                {% elif not nivel_ok %}
+                <span class="apt-catalog-badge apt-badge-lock">🔒 Nív. {{ apt.nivel_req }}</span>
+                {% elif not req_ok %}
+                <span class="apt-catalog-badge apt-badge-req">🔗 Pré-req</span>
+                {% endif %}
+              </div>
+            </div>
+            <p class="apt-catalog-desc">{{ apt.descricao }}</p>
+            {% if apt.req %}
+            <div class="apt-catalog-reqs">
+              Requer:
+              {% for r in apt.req %}
+              {% set r_ok = r in dados.get('aptidoes', []) %}
+              <span class="req-chip {% if r_ok %}req-ok{% endif %}">{{ r | replace('_',' ') | title }}</span>
+              {% endfor %}
+            </div>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+
+    </div>
+  </div>
 </div>
 
 <!-- Modal de Subir de Nível -->
@@ -625,6 +812,11 @@
 const PID = {{ pid }};
 const URL_ATUALIZAR_PV = "{{ url_for('jujutsu.atualizar_pv', pid=pid) }}";
 const URL_SUBIR_NIVEL = "{{ url_for('jujutsu.subir_nivel', pid=pid) }}";
+const URL_ESCOLHER_APTIDAO = "{{ url_for('jujutsu.api_escolher_aptidao', pid=pid) }}";
+const URL_ESCOLHER_HAB = "{{ url_for('jujutsu.api_escolher_habilidade_spec', pid=pid) }}";
+const URL_NIVEL_APTIDAO = "{{ url_for('jujutsu.api_atualizar_nivel_aptidao', pid=pid) }}";
+const NIVEIS_APTIDAO_LABELS = {{ niveis_aptidao_labels | tojson }};
+const HABS_CATALOGADAS = {{ habilidades_catalogadas | tojson }};
 const URL_DISTRIBUIR_ATRIBUTO = "{{ url_for('jujutsu.distribuir_atributo', pid=pid) }}";
 const URL_SALVAR_FEITICOS = "{{ url_for('jujutsu.salvar_feiticos', pid=pid) }}";
 let pvAtual = {{ dados.pv_atual or dados.calculado.pv_max }};
@@ -744,6 +936,7 @@ async function confirmarLevelUp() {
 
   const res = document.getElementById('levelup-resultado');
   res.style.display = 'block';
+  const ganhosHtml = (data.ganhos_nivel || []).map(g => `<li>${g}</li>`).join('');
   res.innerHTML = `
     <div class="levelup-success">
       <div class="levelup-nível">🎉 Nível ${data.nivel}!</div>
@@ -754,11 +947,46 @@ async function confirmarLevelUp() {
         <div>Bônus de Treinamento: +${data.bonus_treinamento}</div>
         ${data.pontos_atributo_disponivel > 0 ? `<div>🎯 ${data.pontos_atributo_disponivel} pontos de atributo disponíveis!</div>` : ''}
       </div>
+      ${ganhosHtml ? `<div class="levelup-upgrades"><strong>⬆ Você ganhou:</strong><ul style="margin:0.4rem 0 0 1.2rem;padding:0;font-size:0.9rem">${ganhosHtml}</ul></div>` : ''}
     </div>`;
 
   showToast(data.mensagem);
-  // Não fecha automaticamente — jogador lê o resultado e fecha manualmente
-  document.getElementById('btn-levelup').disabled = false;
+
+  if (data.habilidades_disponiveis && data.habilidades_disponiveis.length > 0) {
+    const nivel = data.nivel;
+    const habsHtml = data.habilidades_disponiveis.map(h => `
+      <div class="luu-apt-opcao" data-hab-id="${h.id}" onclick="escolherHabilidadeModal(${nivel}, '${h.id}', this)">
+        <div class="luu-apt-opcao-nome">${h.nome}${h.nivel > 1 ? ` <span style="font-size:0.68rem;color:var(--text-muted)">(req. nível ${h.nivel})</span>` : ''}</div>
+        ${h.desc ? `<div class="luu-apt-opcao-desc">${h.desc}</div>` : ''}
+      </div>`).join('');
+    res.innerHTML += `
+      <div id="hab-modal-picker" style="margin-top:1rem">
+        <h4 style="font-size:0.95rem;margin:0 0 0.5rem;color:var(--accent)">✨ Escolha uma Habilidade de Especialização</h4>
+        <div class="luu-apt-lista" style="max-height:260px;overflow-y:auto">${habsHtml}</div>
+      </div>`;
+  } else {
+    setTimeout(() => location.reload(), 1800);
+  }
+}
+
+async function escolherHabilidadeModal(nivel, habId, el) {
+  const resp = await fetch(URL_ESCOLHER_HAB, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({nivel, hab_id: habId})
+  });
+  const data = await resp.json();
+  if (!data.sucesso) { showToast(data.erro || 'Erro', 'error'); return; }
+
+  const picker = document.getElementById('hab-modal-picker');
+  picker.innerHTML = `
+    <div style="margin-top:0.5rem;padding:0.75rem;background:rgba(124,58,237,0.1);border-radius:8px">
+      <div style="font-weight:700;color:var(--accent)">✅ ${data.hab_nome}</div>
+      ${data.hab_desc ? `<div style="font-size:0.82rem;color:var(--text-muted);margin-top:0.25rem">${data.hab_desc}</div>` : ''}
+      <div style="font-size:0.78rem;color:var(--text-muted);margin-top:0.4rem">Adicionado em Talentos/Habilidades!</div>
+    </div>`;
+  showToast(`"${data.hab_nome}" escolhida!`);
+  setTimeout(() => location.reload(), 1800);
 }
 
 async function distribuirAtributo(attr) {
@@ -782,6 +1010,196 @@ document.getElementById('modal-levelup').addEventListener('click', function(e) {
 });
 
 atualizarBarras();
+
+// ── Catálogo de Aptidões ──
+function switchAptTab(catId) {
+  document.querySelectorAll('.apt-cat-panel').forEach(p => p.style.display = 'none');
+  document.querySelectorAll('.apt-cat-tab').forEach(t => t.classList.remove('apt-cat-tab-active'));
+  document.getElementById('apt-panel-' + catId).style.display = 'block';
+  document.querySelector(`.apt-cat-tab[data-cat="${catId}"]`).classList.add('apt-cat-tab-active');
+}
+
+// ── Níveis de Aptidão ──
+async function setNivelAptidao(catId, nivel) {
+  // Toggle: clicking the same filled pip sets to that level; clicking at current level → 0
+  const pips = document.querySelectorAll(`.apt-pip[data-cat="${catId}"]`);
+  const currentFilled = [...pips].filter(p => p.classList.contains('apt-pip-on')).length;
+  const newNivel = currentFilled === nivel ? 0 : nivel;
+
+  const resp = await fetch(URL_NIVEL_APTIDAO, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({categoria: catId, nivel: newNivel})
+  });
+  const data = await resp.json();
+  if (!data.sucesso) { showToast(data.erro || 'Erro', 'error'); return; }
+
+  // Update pips
+  pips.forEach((pip, idx) => {
+    const filled = idx + 1 <= newNivel;
+    pip.classList.toggle('apt-pip-on', filled);
+    pip.style.background = filled ? data.cor : '';
+    pip.style.borderColor = filled ? data.cor : '';
+  });
+  // Update label
+  const label = document.getElementById(`apt-label-${catId}`);
+  if (label) { label.textContent = data.nome; label.style.color = data.cor; }
+}
+
+// ── Aptidões Amaldiçoadas ──
+async function escolherAptidao(nivel, aptId, el) {
+  const picker = el.closest('.luu-apt-picker');
+  const body = el.closest('.luu-apt-body');
+
+  // Captura escolha anterior deste nível antes de atualizar
+  const oldSelected = picker.querySelector('.luu-apt-selecionada');
+  const oldAptId = oldSelected ? oldSelected.dataset.aptId : null;
+
+  const resp = await fetch(URL_ESCOLHER_APTIDAO, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({nivel, apt_id: aptId})
+  });
+  const data = await resp.json();
+  if (!data.sucesso) { showToast(data.erro || 'Erro', 'error'); return; }
+
+  // Atualiza o summary
+  const details = document.getElementById(`luu-apt-${nivel}`);
+  const summary = details.querySelector('summary');
+  let chosen = summary.querySelector('.luu-apt-chosen');
+  let pending = summary.querySelector('.luu-apt-pending');
+  if (!chosen) {
+    chosen = document.createElement('span');
+    chosen.className = 'luu-apt-chosen';
+    pending?.replaceWith(chosen);
+  }
+  chosen.textContent = data.apt_nome;
+  if (pending) pending.remove();
+
+  // Atualiza o body
+  let descEl = body.querySelector('.luu-apt-desc-text');
+  if (!descEl) {
+    descEl = document.createElement('div');
+    descEl.className = 'luu-apt-desc-text';
+    body.insertBefore(descEl, picker);
+    // Adiciona botão trocar
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn btn-xs btn-ghost';
+    btn.style.cssText = 'margin-top:0.5rem;font-size:0.75rem';
+    btn.textContent = 'Trocar';
+    btn.onclick = (e) => { e.preventDefault(); togglePicker(nivel); };
+    body.insertBefore(btn, picker);
+  }
+  descEl.textContent = data.apt_desc;
+  picker.classList.add('luu-picker-hidden');
+
+  // Marca a selecionada no picker
+  picker.querySelectorAll('.luu-apt-opcao').forEach(o => o.classList.remove('luu-apt-selecionada'));
+  el.classList.add('luu-apt-selecionada');
+
+  // Propaga "em uso" para todos os outros pickers: marca nova escolha como usada
+  document.querySelectorAll(`.luu-apt-opcao[data-apt-id="${aptId}"]`).forEach(o => {
+    if (o.closest('.luu-apt-picker') !== picker) {
+      o.classList.add('luu-apt-usada');
+      o.onclick = null;
+    }
+  });
+
+  // Se havia escolha anterior diferente, libera ela nos outros pickers
+  if (oldAptId && oldAptId !== aptId) {
+    document.querySelectorAll(`.luu-apt-opcao[data-apt-id="${oldAptId}"]`).forEach(o => {
+      if (o.closest('.luu-apt-picker') !== picker) {
+        o.classList.remove('luu-apt-usada');
+        const n = parseInt(o.dataset.nivel);
+        const id = o.dataset.aptId;
+        o.onclick = () => escolherAptidao(n, id, o);
+      }
+    });
+  }
+
+  showToast(`Aptidão "${data.apt_nome}" escolhida!`);
+}
+
+function togglePicker(nivel) {
+  const picker = document.querySelector(`.luu-apt-picker[data-nivel="${nivel}"]`);
+  if (picker) picker.classList.toggle('luu-picker-hidden');
+}
+
+// ── Habilidades de Especialização ──
+function toggleHabPicker(nivel) {
+  const picker = document.querySelector(`.luu-hab-picker[data-nivel="${nivel}"]`);
+  if (picker) picker.classList.toggle('luu-picker-hidden');
+}
+
+async function escolherHabilidade(nivel, habId, el) {
+  const picker = el.closest('.luu-hab-picker');
+  const body = el.closest('.luu-hab-body');
+  const oldSelected = picker.querySelector('.luu-apt-selecionada');
+  const oldHabId = oldSelected ? oldSelected.dataset.habId : null;
+
+  const resp = await fetch(URL_ESCOLHER_HAB, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({nivel, hab_id: habId})
+  });
+  const data = await resp.json();
+  if (!data.sucesso) { showToast(data.erro || 'Erro', 'error'); return; }
+
+  // Update summary
+  const details = document.getElementById(`luu-hab-${nivel}`);
+  const summary = details.querySelector('summary');
+  let chosen = summary.querySelector('.luu-hab-chosen');
+  let pending = summary.querySelector('.luu-hab-pending');
+  if (!chosen) {
+    chosen = document.createElement('span');
+    chosen.className = 'luu-hab-chosen';
+    if (pending) pending.replaceWith(chosen);
+    else summary.insertBefore(chosen, summary.querySelector('.luu-expand-hint'));
+  }
+  chosen.textContent = data.hab_nome;
+  if (pending) pending.remove();
+
+  // Update body
+  let descEl = body.querySelector('.luu-hab-desc-text');
+  if (!descEl) {
+    descEl = document.createElement('div');
+    descEl.className = 'luu-hab-desc-text';
+    body.insertBefore(descEl, picker);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn btn-xs btn-ghost';
+    btn.style.cssText = 'margin-top:0.5rem;font-size:0.75rem';
+    btn.textContent = 'Trocar';
+    btn.onclick = (e) => { e.preventDefault(); toggleHabPicker(nivel); };
+    body.insertBefore(btn, picker);
+  }
+  descEl.textContent = data.hab_desc || '';
+  picker.classList.add('luu-picker-hidden');
+
+  picker.querySelectorAll('.luu-apt-opcao').forEach(o => o.classList.remove('luu-apt-selecionada'));
+  el.classList.add('luu-apt-selecionada');
+
+  // Propagate usada state to other hab pickers
+  document.querySelectorAll(`.luu-apt-opcao[data-hab-id="${habId}"]`).forEach(o => {
+    if (o.closest('.luu-hab-picker') !== picker) {
+      o.classList.add('luu-apt-usada');
+      o.onclick = null;
+    }
+  });
+  if (oldHabId && oldHabId !== habId) {
+    document.querySelectorAll(`.luu-apt-opcao[data-hab-id="${oldHabId}"]`).forEach(o => {
+      if (o.closest('.luu-hab-picker') !== picker) {
+        o.classList.remove('luu-apt-usada');
+        const n = parseInt(o.dataset.nivel);
+        const id = o.dataset.habId;
+        o.onclick = () => escolherHabilidade(n, id, o);
+      }
+    });
+  }
+
+  showToast(`"${data.hab_nome}" escolhida!`);
+}
 
 // ── Talentos/Habilidades ──
 let feiticosData = {{ (dados.feiticos or []) | tojson }};

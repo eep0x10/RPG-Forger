@@ -19,9 +19,12 @@ from .game_data import (
     TECNICA_TIPOS, TECNICA_CONJURACAO, TECNICA_DURACAO,
     CONDICOES_POR_FORCA, CONDICAO_CUSTO_DADOS, CONDICAO_DURACAO_PADRAO,
     LIBERACAO_MAXIMA_CUSTO,
-    APTIDOES_DOMINIO, APTIDOES_ADICIONAIS, DOMINIO_TIPOS,
-    INVOCACAO_ACOES_LISTA, INVOCACAO_CARAC_LISTA,
+    APTIDOES_DOMINIO, APTIDOES_ADICIONAIS, TODAS_APTIDOES, APTIDOES_CATEGORIAS, DOMINIO_TIPOS,
+    INVOCACAO_ACOES_LISTA, INVOCACAO_CARAC_LISTA, get_max_invocacoes,
     ARMAS_DADOS, ESCUDOS_DADOS, ATTR_ABREV,
+    ESTILOS_COMBATE,
+    get_ganhos_nivel, TABELAS_NIVEIS, get_habilidades_catalogadas,
+    NIVEIS_APTIDAO_CATEGORIAS, NIVEIS_APTIDAO_LABELS,
 )
 from . import bp
 
@@ -250,7 +253,8 @@ def criar_passo3():
                            pericias=PERICIAS,
                            pericias_treino=PERICIAS_TREINO,
                            attr_abrev=ATTR_ABREV,
-                           pericias_anteriores=pericias_anteriores)
+                           pericias_anteriores=pericias_anteriores,
+                           estilos_combate=ESTILOS_COMBATE)
 
 
 @bp.route("/criar/passo4", methods=["POST"])
@@ -260,6 +264,8 @@ def criar_passo4():
     dados["especializacao"] = request.form.get("especializacao", "lutador")
     dados["atributo_chave"] = request.form.get("atributo_chave", "forca")
     dados["tr_escolhido"] = request.form.get("tr_escolhido", "Fortitude")
+    if dados["especializacao"] == "especialista_combate":
+        dados["estilo_combate"] = request.form.get("estilo_combate", "")
     pericias_json = request.form.get("pericias_json", "")
     if pericias_json:
         try:
@@ -352,6 +358,77 @@ def criar_salvar():
 
 # ─── FICHA DO PERSONAGEM ────────────────────────────────────────────────────────
 
+_MECANICAS_DESC = {
+    "+2 Pontos de Atributo": "Distribua 2 pontos em atributos a sua escolha (máx. +1 por atributo por nível).",
+    "BT +1": "Seu Bônus de Treinamento aumenta em +1.",
+    "Mestre em uma Perícia": "Escolha uma perícia que seja treinado: você se torna Mestre nela.",
+    "Aptidão Amaldiçoada (escolha)": "Aprenda uma nova Aptidão Amaldiçoada a sua escolha.",
+    "+1 Invocação": "Você recebe uma nova Invocação (Treinamento em Controle).",
+    "+Comandos por Ação": "A quantidade de comandos que você pode dar por Ação Comum e Ação Bônus aumenta em 1.",
+    "+2° Estilo de Combate": "Você aprende um segundo Estilo de Combate do Repertório do Especialista.",
+    "+3° Estilo de Combate": "Você aprende um terceiro Estilo de Combate do Repertório do Especialista.",
+    "Mudança de Fundamento adicional": "Aprenda mais uma Mudança de Fundamento (Domínio dos Fundamentos).",
+    "Aptidão: Energia Reversa (automático)": "Você aprende a Aptidão Amaldiçoada Energia Reversa automaticamente.",
+    "Aptidão: Liberação de Energia Reversa (automático)": "Você aprende a Aptidão Amaldiçoada Liberação de Energia Reversa automaticamente.",
+    "Treinamento em Controle: +1 Invocação": "Mais uma Invocação liberada pelo Treinamento em Controle.",
+    "Dádiva do Céu": "Escolha uma Dádiva do Céu da lista do Restringido.",
+}
+
+
+def _build_ganhos_por_nivel(spec_key, spec_data):
+    """Retorna dict {nivel: [{nome, desc, tipo}]} para o bloco Level Up Upgrades."""
+    # Monta lookup nome → desc a partir das habilidades do spec
+    desc_lookup = {}
+    for hab in spec_data.get("habilidades_base", []):
+        desc_lookup[hab["nome"].strip()] = hab.get("desc", "")
+    for _lvl, lista in spec_data.get("habilidades_nivel", {}).items():
+        for item in lista:
+            if "–" in item:
+                partes = item.split("–", 1)
+                desc_lookup[partes[0].strip()] = partes[1].strip()
+
+    result = {}
+    nome_hab = {
+        "lutador": "Habilidade de Lutador",
+        "especialista_combate": "Habilidade de Especialista em Combate",
+        "especialista_tecnica": "Habilidade de Especialista em Técnica",
+        "controlador": "Habilidade de Controlador",
+        "suporte": "Habilidade de Suporte",
+        "restringido": "Habilidade de Restringido",
+    }.get(spec_key, "Habilidade de Especialização")
+
+    for nivel in range(1, 21):
+        itens = []
+
+        # Ganhos automáticos da tabela
+        tabela = TABELAS_NIVEIS.get(spec_key, {})
+        for nome in tabela.get(nivel, []):
+            desc = desc_lookup.get(nome) or _MECANICAS_DESC.get(nome, "")
+            tipo = "mecanica" if nome.startswith(("+", "BT", "Mestre", "Aptidão:", "Mudança")) else "habilidade"
+            itens.append({"nome": nome, "desc": desc, "tipo": tipo})
+
+        # Habilidade de especialização (escolha) — todo nível > 1
+        if nivel > 1:
+            itens.append({
+                "nome": nome_hab + " (escolha)",
+                "desc": "Escolha qualquer habilidade da lista desta especialização que você atenda os pré-requisitos.",
+                "tipo": "escolha",
+            })
+
+        # Aptidão amaldiçoada — todo nível, exceto restringido
+        # (a aptidão escolhida é injetada dinamicamente no template via aptidoes_por_nivel)
+        if spec_key != "restringido":
+            itens.append({
+                "nome": "aptidao_escolha",  # sentinela — tratado no template
+                "desc": "",
+                "tipo": "aptidao",
+            })
+
+        if itens:
+            result[nivel] = itens
+
+    return result
+
 @bp.route("/personagem/<int:pid>")
 @login_required
 def ver_personagem(pid):
@@ -419,7 +496,19 @@ def ver_personagem(pid):
                            kits=KITS,
                            uniformes=UNIFORMES,
                            pericias_calc=pericias_calc,
-                           attr_abrev=ATTR_ABREV)
+                           attr_abrev=ATTR_ABREV,
+                           tabela_niveis=TABELAS_NIVEIS,
+                           ganhos_por_nivel=_build_ganhos_por_nivel(
+                               dados.get("especializacao", "lutador"), spec),
+                           todas_aptidoes=TODAS_APTIDOES,
+                           aptidoes_categorias=APTIDOES_CATEGORIAS,
+                           aptidoes_por_nivel=dados.get("aptidoes_por_nivel", {}),
+                           habilidades_catalogadas=get_habilidades_catalogadas(
+                               dados.get("especializacao", "lutador")),
+                           habilidades_por_nivel=dados.get("habilidades_por_nivel", {}),
+                           niveis_aptidao_cats=NIVEIS_APTIDAO_CATEGORIAS,
+                           niveis_aptidao_labels=NIVEIS_APTIDAO_LABELS,
+                           niveis_aptidao=dados.get("niveis_aptidao", {}))
 
 
 @bp.route("/personagem/<int:pid>/editar", methods=["GET", "POST"])
@@ -542,6 +631,16 @@ def subir_nivel(pid):
         )
         conn.commit()
 
+    ganhos_nivel = get_ganhos_nivel(spec_key, novo_nivel)
+
+    catalogo = get_habilidades_catalogadas(spec_key)
+    habs_por_nivel = dados.get("habilidades_por_nivel", {})
+    used_hab_ids = set(habs_por_nivel.values())
+    habilidades_disponiveis = [
+        h for h in catalogo
+        if h["nivel"] <= novo_nivel and h["id"] not in used_hab_ids
+    ]
+
     return jsonify({
         "sucesso": True,
         "nivel": novo_nivel,
@@ -551,6 +650,8 @@ def subir_nivel(pid):
         "bonus_treinamento": dados["calculado"]["bonus_treinamento"],
         "grau": dados["calculado"]["grau"],
         "pontos_atributo_disponivel": dados.get("pontos_atributo_disponivel", 0),
+        "ganhos_nivel": ganhos_nivel,
+        "habilidades_disponiveis": habilidades_disponiveis,
         "mensagem": f"Subiu para o nível {novo_nivel}! Ganhou {ganho_pv} PV."
     })
 
@@ -718,10 +819,12 @@ def listar_invocacoes(pid):
 
     grades_acesso = get_grades_acesso(nivel) if dados.get("especializacao") == "controlador" else GRADE_ORDEM
 
+    max_invocacoes = get_max_invocacoes(nivel)
     return render_template("jujutsu/invocacoes.html",
                            pid=pid, dados=dados, invocacoes=invocacoes,
                            grades_acesso=grades_acesso, grade_nomes=GRADE_NOMES,
-                           inv_grades=INVOCACAO_GRADES)
+                           inv_grades=INVOCACAO_GRADES,
+                           max_invocacoes=max_invocacoes)
 
 
 @bp.route("/personagem/<int:pid>/invocacoes/criar", methods=["GET", "POST"])
@@ -738,9 +841,15 @@ def criar_invocacao(pid):
     bt = dados["calculado"]["bonus_treinamento"]
     grades_acesso = get_grades_acesso(nivel) if dados.get("especializacao") == "controlador" else GRADE_ORDEM
 
+    max_inv = get_max_invocacoes(nivel)
+    invocacoes_atuais = dados.get("invocacoes", [])
+
     if request.method == "POST":
+        if len(invocacoes_atuais) >= max_inv:
+            return redirect(url_for("jujutsu.listar_invocacoes", pid=pid))
         inv = _parse_invocacao_form(request.form, nivel, bt)
-        dados.setdefault("invocacoes", []).append(inv)
+        invocacoes_atuais.append(inv)
+        dados["invocacoes"] = invocacoes_atuais
         _save_personagem(pid, dados)
         return redirect(url_for("jujutsu.listar_invocacoes", pid=pid))
 
@@ -864,6 +973,140 @@ def _parse_invocacao_form(form, nivel, bt):
     calcular_invocacao(inv, nivel, bt)
     inv["pv_atual"] = inv["calculado"]["pv_max"]
     return inv
+
+
+@bp.route("/personagem/<int:pid>/api/escolher_aptidao", methods=["POST"])
+@login_required
+def api_escolher_aptidao(pid):
+    row, dados = _get_personagem(pid)
+    if not row:
+        return jsonify({"erro": "Não encontrado"}), 404
+
+    data = request.json or {}
+    nivel_str = str(data.get("nivel", ""))
+    apt_id = data.get("apt_id", "")
+
+    if not nivel_str or not apt_id:
+        return jsonify({"erro": "Parâmetros inválidos"}), 400
+
+    nivel_char = dados.get("nivel", 1)
+    nivel_int = int(nivel_str)
+    if nivel_int > nivel_char:
+        return jsonify({"erro": "Nível não alcançado"}), 400
+
+    todas = TODAS_APTIDOES
+    apt = next((a for a in todas if a["id"] == apt_id), None)
+    if not apt:
+        return jsonify({"erro": "Aptidão não encontrada"}), 400
+
+    if apt["nivel_req"] > nivel_char:
+        return jsonify({"erro": f"Requer nível {apt['nivel_req']}"}), 400
+
+    aptidoes_atuais = set(dados.get("aptidoes", []))
+    for req in apt.get("req", []):
+        if req not in aptidoes_atuais:
+            return jsonify({"erro": "Pré-requisito não atendido"}), 400
+
+    apt_por_nivel = dados.get("aptidoes_por_nivel", {})
+
+    # Remove a aptidão antiga desse nível da lista global (se houver)
+    antiga = apt_por_nivel.get(nivel_str)
+    if antiga and antiga != apt_id:
+        # Verifica se a antiga ainda é usada em outro nível antes de remover
+        usada_outro = any(v == antiga for k, v in apt_por_nivel.items() if k != nivel_str)
+        if not usada_outro:
+            aptidoes_atuais.discard(antiga)
+
+    apt_por_nivel[nivel_str] = apt_id
+    aptidoes_atuais.add(apt_id)
+
+    dados["aptidoes_por_nivel"] = apt_por_nivel
+    dados["aptidoes"] = list(aptidoes_atuais)
+    _save_personagem(pid, dados)
+
+    return jsonify({
+        "sucesso": True,
+        "apt_id": apt_id,
+        "apt_nome": apt["nome"],
+        "apt_desc": apt["descricao"],
+    })
+
+
+@bp.route("/personagem/<int:pid>/api/escolher_habilidade_spec", methods=["POST"])
+@login_required
+def api_escolher_habilidade_spec(pid):
+    row, dados = _get_personagem(pid)
+    if not row:
+        return jsonify({"erro": "Não encontrado"}), 404
+
+    data = request.json or {}
+    nivel_str = str(data.get("nivel", ""))
+    hab_id = data.get("hab_id", "")
+
+    if not nivel_str or not hab_id:
+        return jsonify({"erro": "Parâmetros inválidos"}), 400
+
+    nivel_char = dados.get("nivel", 1)
+    nivel_int = int(nivel_str)
+    if nivel_int > nivel_char:
+        return jsonify({"erro": "Nível não alcançado"}), 400
+
+    spec_key = dados.get("especializacao", "lutador")
+    catalogo = get_habilidades_catalogadas(spec_key)
+    hab = next((h for h in catalogo if h["id"] == hab_id), None)
+    if not hab:
+        return jsonify({"erro": "Habilidade não encontrada"}), 400
+
+    if hab["nivel"] > nivel_char:
+        return jsonify({"erro": f"Requer nível {hab['nivel']}"}), 400
+
+    habs_por_nivel = dados.get("habilidades_por_nivel", {})
+    antiga_id = habs_por_nivel.get(nivel_str)
+
+    usada_outro = any(v == hab_id for k, v in habs_por_nivel.items() if k != nivel_str)
+    if usada_outro:
+        return jsonify({"erro": "Esta habilidade já foi escolhida em outro nível"}), 400
+
+    habs_por_nivel[nivel_str] = hab_id
+    dados["habilidades_por_nivel"] = habs_por_nivel
+
+    # Update feiticos
+    feiticos = dados.get("feiticos", [])
+    feiticos = [f if isinstance(f, dict) else {"nome": f, "desc": ""} for f in feiticos]
+
+    if antiga_id and antiga_id != hab_id:
+        old_hab = next((h for h in catalogo if h["id"] == antiga_id), None)
+        if old_hab:
+            feiticos = [f for f in feiticos if f.get("nome") != old_hab["nome"]]
+
+    if not any(f.get("nome") == hab["nome"] for f in feiticos):
+        feiticos.append({"nome": hab["nome"], "desc": hab["desc"]})
+    dados["feiticos"] = feiticos
+
+    _save_personagem(pid, dados)
+    return jsonify({"sucesso": True, "hab_nome": hab["nome"], "hab_desc": hab["desc"]})
+
+
+@bp.route("/personagem/<int:pid>/api/atualizar_nivel_aptidao", methods=["POST"])
+@login_required
+def api_atualizar_nivel_aptidao(pid):
+    row, dados = _get_personagem(pid)
+    if not row:
+        return jsonify({"erro": "Não encontrado"}), 404
+    data = request.json or {}
+    cat_id = data.get("categoria", "")
+    nivel = data.get("nivel", 0)
+    ids_validos = {c["id"] for c in NIVEIS_APTIDAO_CATEGORIAS}
+    if cat_id not in ids_validos:
+        return jsonify({"erro": "Categoria inválida"}), 400
+    if not isinstance(nivel, int) or nivel < 0 or nivel > 4:
+        return jsonify({"erro": "Nível inválido (0-4)"}), 400
+    niveis = dados.get("niveis_aptidao", {})
+    niveis[cat_id] = nivel
+    dados["niveis_aptidao"] = niveis
+    _save_personagem(pid, dados)
+    label = NIVEIS_APTIDAO_LABELS[nivel]
+    return jsonify({"sucesso": True, "nivel": nivel, "nome": label["nome"], "cor": label["cor"]})
 
 
 @bp.route("/api/invocacao_calc", methods=["POST"])
@@ -1023,9 +1266,7 @@ def gerenciar_aptidoes(pid):
 
     aptidoes_atuais = set(dados.get("aptidoes", []))
     nivel = dados.get("nivel", 1)
-
     eh_restringido = dados.get("especializacao") == "restringido"
-    dom = APTIDOES_DOMINIO if not eh_restringido else []
 
     def apt_info(apt):
         req_ids = apt.get("req", [])
@@ -1033,13 +1274,18 @@ def gerenciar_aptidoes(pid):
         level_ok = nivel >= apt.get("nivel_req", 1)
         return {**apt, "pode": req_ok and level_ok, "tem": apt["id"] in aptidoes_atuais}
 
-    dom_info = [apt_info(a) for a in dom]
-    adic_info = [apt_info(a) for a in APTIDOES_ADICIONAIS]
+    categorias_info = []
+    for cat in APTIDOES_CATEGORIAS:
+        if eh_restringido and cat["id"] in ("dominio", "energia_reversa", "especiais"):
+            continue
+        categorias_info.append({
+            **cat,
+            "lista": [apt_info(a) for a in cat["lista"]],
+        })
 
     return render_template("jujutsu/aptidoes.html",
                            pid=pid, dados=dados,
-                           aptidoes_dominio=dom_info,
-                           aptidoes_adicionais=adic_info,
+                           categorias=categorias_info,
                            aptidoes_atuais=list(aptidoes_atuais),
                            nivel=nivel)
 

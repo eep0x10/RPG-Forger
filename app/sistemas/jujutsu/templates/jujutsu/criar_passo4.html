@@ -111,7 +111,7 @@
       <div class="kit-grid" id="kit-grid">
         {% for nome, kit in kits.items() %}
         <label class="kit-option">
-          <input type="radio" value="{{ nome }}" onchange="selecionarKit(this)">
+          <input type="radio" value="{{ nome }}" onclick="selecionarKit(this)">
           <div class="kit-card">
             <div class="kit-card-header">
               <span class="kit-icone">{{ kit.icone }}</span>
@@ -223,11 +223,22 @@ function renderArmaInfo(nome) {
   return html;
 }
 
+let kitSelecionadoAtual = null;
+
 function selecionarKit(radio) {
+  // Permite desmarcar clicando no já selecionado
+  if (kitSelecionadoAtual === radio.value) {
+    radio.checked = false;
+    kitSelecionadoAtual = null;
+    document.querySelectorAll('.kit-option').forEach(o => o.classList.remove('selected'));
+    document.getElementById('kit-hidden').value = '';
+    document.getElementById('kit-detalhe').style.display = 'none';
+    return;
+  }
+  kitSelecionadoAtual = radio.value;
   document.querySelectorAll('.kit-option').forEach(o => o.classList.remove('selected'));
   radio.closest('.kit-option').classList.add('selected');
   document.getElementById('kit-hidden').value = radio.value;
-  // Remove o input radio duplicado — o hidden leva o valor
   const nome = radio.value;
   const kit = KITS_DATA[nome];
   if (!kit) return;

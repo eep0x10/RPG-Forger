@@ -192,7 +192,13 @@ ESPECIALIZACOES = {
         "pe_soma_mod": False,
         "atributos_chave": ["forca", "destreza"],
         "req_multiclasse": "Força ou Destreza 16",
-        "treinamentos": "Armas Simples, Armas Marciais e Escudo Leve. Fortitude ou Reflexos. Atletismo ou Acrobacia + 3 perícias quaisquer.",
+        "treinamentos": "Armas Simples, Armas Marciais e Escudo Leve. Fortitude ou Reflexos. 1 perícia de Ofício/Atletismo/Acrobacia + 3 perícias quaisquer.",
+        "pericias_treinamento": {
+            "lista": ["Ofício", "Atletismo", "Acrobacia"],
+            "qtd_lista": 1,
+            "qtd_livres": 3,
+            "excluir": [],
+        },
         "habilidades_base": [
             {
                 "nivel": 1,
@@ -225,7 +231,13 @@ ESPECIALIZACOES = {
         "pe_soma_mod": False,
         "atributos_chave": ["forca", "destreza", "sabedoria"],
         "req_multiclasse": "Força ou Destreza 16",
-        "treinamentos": "Todas as armas e escudos. Fortitude ou Reflexos. 2 perícias de Ofício/Atletismo/Acrobacia + 3 perícias quaisquer.",
+        "treinamentos": "Todas as armas e escudos. Fortitude ou Reflexos. 2 perícias de Ofício/Atletismo/Acrobacia + 3 outras quaisquer.",
+        "pericias_treinamento": {
+            "lista": ["Ofício", "Atletismo", "Acrobacia"],
+            "qtd_lista": 2,
+            "qtd_livres": 3,
+            "excluir": [],
+        },
         "habilidades_base": [
             {
                 "nivel": 1,
@@ -256,7 +268,13 @@ ESPECIALIZACOES = {
         "pe_soma_mod": True,
         "atributos_chave": ["inteligencia", "sabedoria"],
         "req_multiclasse": "Inteligência ou Sabedoria 16",
-        "treinamentos": "Armas Simples e a Distância. Astúcia ou Vontade. Feitiçaria, Ocultismo + 2 perícias quaisquer.",
+        "treinamentos": "Armas Simples e a Distância. Astúcia ou Vontade. 2 de Ofício/Feitiçaria/Ocultismo + 2 outras quaisquer.",
+        "pericias_treinamento": {
+            "lista": ["Ofício", "Feitiçaria", "Ocultismo"],
+            "qtd_lista": 2,
+            "qtd_livres": 2,
+            "excluir": [],
+        },
         "habilidades_base": [
             {
                 "nivel": 1,
@@ -270,8 +288,10 @@ ESPECIALIZACOES = {
             }
         ],
         "habilidades_nivel": {
+            4: ["Adiantar a Evolução – Acesso antecipado a feitiços superiores: nível 2 no 4°, nível 3 no 7°, nível 4 no 11°, nível 5 no 15°"],
             9: ["Teste de Resistência Mestre"],
-            20: ["Técnica Absoluta – Habilidade definitiva do Especialista em Técnica"]
+            10: ["Foco Amaldiçoado – Escolhe um foco: Destruição (+1 dano/dado + BT no dano), Economia (custo −2, BT no PE máx.) ou Refino (Aptidão/Feitiço extra, ½ BT em CD e acerto)"],
+            20: ["O Honrado – Feitiços nível 1-3 custam metade; CD de feitiços e aptidões +5; +5 em rolagens de ataque amaldiçoado"]
         }
     },
     "controlador": {
@@ -285,7 +305,13 @@ ESPECIALIZACOES = {
         "pe_soma_mod": True,
         "atributos_chave": ["presenca", "sabedoria"],
         "req_multiclasse": "Presença ou Sabedoria 16",
-        "treinamentos": "Armas Simples e a Distância. Astúcia ou Vontade. Percepção, Persuasão + 2 perícias quaisquer.",
+        "treinamentos": "Armas Simples e a Distância. Astúcia ou Vontade. 1 de Ofício/Percepção/Persuasão + 2 outras quaisquer.",
+        "pericias_treinamento": {
+            "lista": ["Ofício", "Percepção", "Persuasão"],
+            "qtd_lista": 1,
+            "qtd_livres": 2,
+            "excluir": [],
+        },
         "habilidades_base": [
             {
                 "nivel": 1,
@@ -312,7 +338,13 @@ ESPECIALIZACOES = {
         "pe_soma_mod": True,
         "atributos_chave": ["presenca", "sabedoria"],
         "req_multiclasse": "Presença ou Sabedoria 16",
-        "treinamentos": "Armas Simples e Escudos. Astúcia ou Vontade. Medicina, Prestidigitação + 3 perícias quaisquer.",
+        "treinamentos": "Armas Simples e Escudos. Astúcia ou Vontade. 2 de Ofício/Medicina/Prestidigitação + 3 outras quaisquer.",
+        "pericias_treinamento": {
+            "lista": ["Ofício", "Medicina", "Prestidigitação"],
+            "qtd_lista": 2,
+            "qtd_livres": 3,
+            "excluir": [],
+        },
         "habilidades_base": [
             {
                 "nivel": 1,
@@ -341,7 +373,13 @@ ESPECIALIZACOES = {
         "pe_soma_mod": False,
         "atributos_chave": ["forca", "destreza", "constituicao", "inteligencia", "sabedoria", "presenca"],
         "req_multiclasse": "Não pode fazer Multiclasse",
-        "treinamentos": "Todas as armas e escudos. Fortitude e Reflexos. 1 perícia de Ofício + 4 quaisquer (exceto Feitiçaria).",
+        "treinamentos": "Todas as armas e escudos. Fortitude e Reflexos (ambos). 1 de Ofício + 4 outras quaisquer (exceto Feitiçaria).",
+        "pericias_treinamento": {
+            "lista": ["Ofício"],
+            "qtd_lista": 1,
+            "qtd_livres": 4,
+            "excluir": ["Feitiçaria"],
+        },
         "habilidades_base": [
             {
                 "nivel": 1,
@@ -394,6 +432,277 @@ ATTR_ABREV = {
 }
 
 TESTES_RESISTENCIA = ["Fortitude", "Reflexos", "Vontade", "Astúcia"]
+
+# ─── NÍVEIS DE APTIDÃO (Cap. 8, p. 173) ────────────────────────────────────────
+NIVEIS_APTIDAO_CATEGORIAS = [
+    {
+        "id": "fisico",
+        "nome": "Físico",
+        "icone": "💪",
+        "desc": "Aptidão em combate corpo a corpo, manobras e resistência física.",
+    },
+    {
+        "id": "energia",
+        "nome": "Energia Amaldiçoada",
+        "icone": "🔮",
+        "desc": "Controle e volume de energia amaldiçoada gerada e manipulada.",
+    },
+    {
+        "id": "tecnica",
+        "nome": "Técnica Inata",
+        "icone": "⚡",
+        "desc": "Maestria e versatilidade da técnica inata própria.",
+    },
+    {
+        "id": "controle",
+        "nome": "Controle",
+        "icone": "🌀",
+        "desc": "Refinamento do controle fino sobre a energia amaldiçoada.",
+    },
+]
+
+NIVEIS_APTIDAO_LABELS = {
+    0: {"nome": "Nenhum",    "cor": "#6b7280"},
+    1: {"nome": "Básico",    "cor": "#3b82f6"},
+    2: {"nome": "Médio",     "cor": "#22c55e"},
+    3: {"nome": "Avançado",  "cor": "#f59e0b"},
+    4: {"nome": "Superior",  "cor": "#a78bfa"},
+}
+
+# ─── ESTILOS DE COMBATE (Repertório do Especialista) ──────────────────────────
+ESTILOS_COMBATE = {
+    "defensivo": {
+        "nome": "Estilo Defensivo",
+        "desc": "Foca em aprimorar a defesa. Defesa +2 no 1° nível, +1 nos níveis 4, 8, 12 e 16.",
+        "efeito_nivel1": "Defesa +2",
+        "progressao": "Defesa +1 nos níveis 4, 8, 12 e 16.",
+    },
+    "arremessador": {
+        "nome": "Estilo do Arremessador",
+        "desc": "Especializado em armas de arremesso. Pode sacar uma arma de arremesso como parte do ataque. +2 em rolagens de dano com armas de arremesso.",
+        "efeito_nivel1": "Sacar arma de arremesso como parte do ataque; +2 dano com arremesso",
+        "progressao": "Bônus de dano +1 nos níveis 4, 8, 12 e 16.",
+    },
+    "duelista": {
+        "nome": "Estilo do Duelista",
+        "desc": "Duelo com uma única arma enquanto a outra mão está livre. +1 em acerto e +2 em dano.",
+        "efeito_nivel1": "+1 acerto, +2 dano (1 arma + mão livre)",
+        "progressao": "Dano +1 nos níveis 4, 8, 12, 16; Acerto +1 nos níveis 8 e 16.",
+    },
+    "interceptador": {
+        "nome": "Estilo do Interceptador",
+        "desc": "Usa armas para interceptar ataques em aliados. Reação: reduz dano de aliado em 1d10 + modificador (FOR/DES/SAB).",
+        "efeito_nivel1": "Reação: reduz dano de aliado em 1d10 + mod",
+        "progressao": "+1 dado de redução nos níveis 4, 8, 12 e 16.",
+    },
+    "protetor": {
+        "nome": "Estilo do Protetor",
+        "desc": "Protege aliados a 1,5m. Reação: impõe desvantagem em ataque contra aliado adjacente. Pode conceder vantagem em TR de aliado a 1,5m.",
+        "efeito_nivel1": "Reação: desvantagem em ataques contra aliados a 1,5m; vantagem em TR de aliado",
+        "progressao": "Sem escalamento de nível.",
+    },
+    "distante": {
+        "nome": "Estilo Distante",
+        "desc": "Especializado em armas a distância. +1 em acerto e +2 em dano com armas a distância.",
+        "efeito_nivel1": "+1 acerto, +2 dano (armas a distância)",
+        "progressao": "Dano +1 nos níveis 4, 8, 12, 16; Acerto +1 nos níveis 8 e 16.",
+    },
+    "duplo": {
+        "nome": "Estilo Duplo",
+        "desc": "Manejar duas armas. Adiciona o bônus de atributo no dano da segunda arma, +1 dano adicional.",
+        "efeito_nivel1": "+bônus de atributo no dano da 2ª arma; +1 dano",
+        "progressao": "Dano +1 nos níveis 4, 8, 12 e 16.",
+    },
+    "massivo": {
+        "nome": "Estilo Massivo",
+        "desc": "Domínio de armas pesadas. Relança dados que resultam 1 ou 2 em armas de 2 mãos/pesadas. +1 dano.",
+        "efeito_nivel1": "Relança 1s e 2s em armas de 2 mãos/pesadas; +1 dano",
+        "progressao": "Dano +1 nos níveis 4, 8, 12 e 16.",
+    },
+}
+
+
+# ─── TABELAS DE NÍVEL POR ESPECIALIZAÇÃO ──────────────────────────────────────
+# Ganhos automáticos (além de: +1 Habilidade de Espec., +1 Aptidão por nível exceto restringido)
+# Níveis 4,8,12,16,20 → +2 Pontos de Atributo | Níveis 5,9,13,17 → BT+1 | Nível 10 → Mestre em Perícia
+
+TABELAS_NIVEIS = {
+    "lutador": {
+        1:  ["Corpo Treinado", "Empolgação"],
+        2:  ["Reflexo Evasivo"],
+        3:  [],
+        4:  ["Implemento Marcial", "+2 Pontos de Atributo"],
+        5:  ["Gosto pela Luta", "BT +1"],
+        6:  [],
+        7:  [],
+        8:  ["+2 Pontos de Atributo"],
+        9:  ["Teste de Resistência Mestre", "BT +1"],
+        10: ["Mestre em uma Perícia"],
+        11: ["Empolgação Máxima"],
+        12: ["+2 Pontos de Atributo"],
+        13: ["BT +1"],
+        14: [],
+        15: [],
+        16: ["+2 Pontos de Atributo"],
+        17: ["BT +1"],
+        18: [],
+        19: [],
+        20: ["Lutador Superior", "+2 Pontos de Atributo"],
+    },
+    "especialista_combate": {
+        1:  ["Repertório do Especialista (Estilo de Combate)", "Artes do Combate"],
+        2:  [],
+        3:  [],
+        4:  ["Golpe Especial", "Implemento Marcial", "+2 Pontos de Atributo"],
+        5:  ["BT +1"],
+        6:  ["Renovação pelo Sangue", "+2° Estilo de Combate"],
+        7:  [],
+        8:  ["+2 Pontos de Atributo"],
+        9:  ["Teste de Resistência Mestre", "BT +1"],
+        10: ["Mestre em uma Perícia"],
+        11: [],
+        12: ["+2 Pontos de Atributo", "+3° Estilo de Combate"],
+        13: ["BT +1"],
+        14: [],
+        15: [],
+        16: ["+2 Pontos de Atributo"],
+        17: ["BT +1"],
+        18: [],
+        19: [],
+        20: ["Autossuficiente", "+2 Pontos de Atributo"],
+    },
+    "especialista_tecnica": {
+        1:  ["Domínio dos Fundamentos (2 Mudanças)", "Conjuração Aprimorada"],
+        2:  [],
+        3:  [],
+        4:  ["Adiantar a Evolução", "+2 Pontos de Atributo"],
+        5:  ["BT +1"],
+        6:  [],
+        7:  [],
+        8:  ["+2 Pontos de Atributo"],
+        9:  ["Teste de Resistência Mestre", "BT +1"],
+        10: ["Foco Amaldiçoado", "Mestre em uma Perícia"],
+        11: [],
+        12: ["+2 Pontos de Atributo", "Mudança de Fundamento adicional"],
+        13: ["BT +1"],
+        14: [],
+        15: [],
+        16: ["+2 Pontos de Atributo"],
+        17: ["BT +1"],
+        18: [],
+        19: [],
+        20: ["O Honrado", "+2 Pontos de Atributo"],
+    },
+    "controlador": {
+        1:  ["Treinamento em Controle (2 Invocações iniciais)"],
+        2:  [],
+        3:  ["+1 Invocação"],
+        4:  ["Controle Aprimorado", "+2 Pontos de Atributo"],
+        5:  ["BT +1"],
+        6:  ["Apogeu (Estilo de Controle)", "+1 Invocação", "+Comandos por Ação"],
+        7:  [],
+        8:  ["+2 Pontos de Atributo"],
+        9:  ["Treinamento em Controle: +1 Invocação", "Teste de Resistência Mestre", "BT +1"],
+        10: ["Reserva para Invocação", "+1 Invocação", "Mestre em uma Perícia"],
+        11: [],
+        12: ["+2 Pontos de Atributo", "+1 Invocação", "+Comandos por Ação"],
+        13: ["BT +1"],
+        14: [],
+        15: ["+1 Invocação"],
+        16: ["+2 Pontos de Atributo"],
+        17: ["BT +1"],
+        18: ["+1 Invocação", "+Comandos por Ação"],
+        19: [],
+        20: ["Ápice do Controle", "+2 Pontos de Atributo"],
+    },
+    "suporte": {
+        1:  ["Suporte em Combate"],
+        2:  [],
+        3:  ["Presença Inspiradora"],
+        4:  ["+2 Pontos de Atributo"],
+        5:  ["Versatilidade", "BT +1"],
+        6:  ["Aptidão: Energia Reversa (automático)"],
+        7:  [],
+        8:  ["+2 Pontos de Atributo", "Aptidão: Liberação de Energia Reversa (automático)"],
+        9:  ["Teste de Resistência Mestre", "BT +1"],
+        10: ["Medicina Infalível", "Mestre em uma Perícia"],
+        11: [],
+        12: ["+2 Pontos de Atributo"],
+        13: ["BT +1"],
+        14: [],
+        15: [],
+        16: ["+2 Pontos de Atributo"],
+        17: ["BT +1"],
+        18: [],
+        19: [],
+        20: ["Suporte Absoluto", "+2 Pontos de Atributo"],
+    },
+    "restringido": {
+        1:  ["Restrito pelos Céus (Ferramenta Grau 4, Pontos de Estamina, Estilo Marcial)"],
+        2:  ["Ataque Furtivo 1d8", "Versatilidade (+1 perícias)"],
+        3:  ["Esquiva Sobre-humana (+1 DEF/Reflexos)", "Ataque Furtivo 2d8"],
+        4:  ["Implemento Celeste", "Dádiva do Céu", "+2 Pontos de Atributo"],
+        5:  ["BT +1"],
+        6:  ["Ataque Furtivo 3d8"],
+        7:  [],
+        8:  ["+2 Pontos de Atributo", "Dádiva do Céu"],
+        9:  ["Ataque Furtivo 4d8", "Esquiva Sobre-humana (+2)", "Teste de Resistência Mestre", "BT +1"],
+        10: ["Restrição Definitiva", "Versatilidade (+2 perícias)", "Mestre em uma Perícia"],
+        11: [],
+        12: ["Ataque Furtivo 5d8", "+2 Pontos de Atributo", "Dádiva do Céu"],
+        13: ["BT +1"],
+        14: [],
+        15: ["Ataque Furtivo 6d8"],
+        16: ["Esquiva Sobre-humana (+3)", "+2 Pontos de Atributo", "Dádiva do Céu"],
+        17: ["BT +1"],
+        18: [],
+        19: [],
+        20: ["Libertação do Destino", "+2 Pontos de Atributo", "Dádiva do Céu"],
+    },
+}
+
+
+def get_ganhos_nivel(spec_key, nivel):
+    """Retorna lista de strings com tudo que se ganha ao atingir `nivel`."""
+    tabela = TABELAS_NIVEIS.get(spec_key, {})
+    ganhos = list(tabela.get(nivel, []))
+
+    # Habilidade de especialização (escolha livre) em todo nível > 1
+    if nivel > 1:
+        nomes_spec = {
+            "lutador": "Habilidade de Lutador",
+            "especialista_combate": "Habilidade de Especialista em Combate",
+            "especialista_tecnica": "Habilidade de Especialista em Técnica",
+            "controlador": "Habilidade de Controlador",
+            "suporte": "Habilidade de Suporte",
+            "restringido": "Habilidade de Restringido",
+        }
+        ganhos.append(nomes_spec.get(spec_key, "Habilidade de Especialização") + " (escolha)")
+
+    # Aptidão amaldiçoada em todo nível (exceto restringido)
+    if spec_key != "restringido":
+        ganhos.append("Aptidão Amaldiçoada (escolha)")
+
+    return ganhos
+
+
+def get_habilidades_catalogadas(spec_key):
+    """Returns list of {id, nivel, nome, desc} for all choosable habilidades of a spec."""
+    spec = ESPECIALIZACOES.get(spec_key, {})
+    result = []
+    for nivel_num, lista in sorted(spec.get("habilidades_nivel", {}).items()):
+        for item in lista:
+            if "–" in item:
+                partes = item.split("–", 1)
+                nome = partes[0].strip()
+                desc = partes[1].strip()
+            else:
+                nome = item.strip()
+                desc = ""
+            hab_id = ''.join(c if c.isalnum() else '_' for c in nome.lower().replace(" ", "_"))
+            result.append({"id": hab_id, "nivel": nivel_num, "nome": nome, "desc": desc})
+    return result
+
 
 ARMAS_INICIAIS = [
     "Espada Curta", "Espada Longa", "Faca", "Machado de Mão",
@@ -885,6 +1194,14 @@ def get_grades_acesso(nivel_controlador):
     return ["4"]
 
 
+# Treinamento em Controle: 2 iniciais + 1 nos níveis 3, 6, 9, 10, 12, 15, 18
+_INVOCACOES_GANHOS = [3, 6, 9, 10, 12, 15, 18]
+
+def get_max_invocacoes(nivel):
+    """Retorna o número máximo de invocações que um Controlador pode ter cadastradas."""
+    return 2 + sum(1 for n in _INVOCACOES_GANHOS if nivel >= n)
+
+
 def calcular_invocacao(inv, nivel_usuario, bt_usuario):
     """Calcula PV, DEF, custo PE e bônus de invocação."""
     grau = inv.get("grau", "4")
@@ -1066,100 +1383,317 @@ LIBERACAO_MAXIMA_CUSTO = {1: 3, 2: 8, 3: 12, 4: 18, 5: 30}
 
 
 # ─── APTIDÕES AMALDIÇOADAS ──────────────────────────────────────────────────────
+# Organizadas conforme o livro (Cap. 8)
 
-APTIDOES_DOMINIO = [
+# p.174 — Aptidão de Aura
+APTIDOES_AURA = [
     {
-        "id": "dominio_1", "nivel_req": 4, "req": [],
-        "nome": "Expansão de Domínio I",
-        "descricao": "Você pode criar uma Expansão Incompleta: sem barreira, expande energia em raio 4,5m × BM. Permite amplificações de técnica e efeitos ambientais. Sem acerto garantido.",
-    },
-    {
-        "id": "dominio_2", "nivel_req": 8, "req": ["dominio_1"],
-        "nome": "Expansão de Domínio II",
-        "descricao": "Sua expansão pode ser Completa. Barreira esférica de 9m de raio. PV da barreira = 6 × nível aptidão. Duração: 3 + nível aptidão rodadas.",
-    },
-    {
-        "id": "dominio_3", "nivel_req": 12, "req": ["dominio_2"],
-        "nome": "Expansão de Domínio III",
-        "descricao": "Domínio Completo pode ser Letal (acerto garantido imbuído na barreira), ou Sem Barreira (acerto garantido, esfera até 9m × BM, destrói expansões de fora).",
-    },
-    {
-        "id": "dominio_4", "nivel_req": 16, "req": ["dominio_3"],
-        "nome": "Expansão de Domínio IV",
-        "descricao": "Abrir/fechar domínio como Ação Bônus. Custo de manutenção reduzido à metade. Área do Sem Barreira pode ser dobrada com Domínio Completo.",
-    },
-]
-
-APTIDOES_ADICIONAIS = [
-    {
-        "id": "energia_reversa", "nivel_req": 1, "req": [],
-        "nome": "Energia Reversa",
-        "descricao": "Inverte o fluxo de EA para criar energia de cura. Suas habilidades de cura agora restauram PV reais (sem esta aptidão, só PV temporários).",
-    },
-    {
-        "id": "liberacao_energia_reversa", "nivel_req": 4, "req": ["energia_reversa"],
-        "nome": "Liberação de Energia Reversa",
-        "descricao": "Use EA reversa ofensivamente: dano adicional contra maldições e exorcismo com energia positiva.",
-    },
-    {
-        "id": "leitura_controle", "nivel_req": 2, "req": [],
-        "nome": "Leitura e Controle",
-        "descricao": "Detecte usuários de EA a até 30m. +2 em testes relacionados a energia amaldiçoada.",
-    },
-    {
-        "id": "leitura_controle_2", "nivel_req": 6, "req": ["leitura_controle"],
-        "nome": "Leitura e Controle II",
-        "descricao": "Vantagem em testes de Feitiçaria/Ocultismo sobre EA. Detecte EA dentro de 60m.",
-    },
-    {
-        "id": "leitura_controle_3", "nivel_req": 10, "req": ["leitura_controle_2"],
-        "nome": "Leitura e Controle III",
-        "descricao": "Maestria de controle: habilidades custam 1 PE a menos (mínimo 1).",
+        "id": "reforco", "nivel_req": 1, "req": [],
+        "nome": "Reforço",
+        "descricao": "Ação Bônus: canalize EA no corpo ou na arma. Concede +BM em rolagens de ataque ou +BM na Defesa por 1 rodada.",
     },
     {
         "id": "aura", "nivel_req": 1, "req": [],
         "nome": "Aptidão de Aura",
-        "descricao": "Ação Bônus: ativa aura por 1 rodada, recebendo RD 2 contra todos os danos físicos.",
+        "descricao": "Ação Bônus: ative sua aura por 1 rodada, recebendo Redução de Dano 2 contra todos os tipos de dano físico.",
+    },
+    {
+        "id": "cobrir_se", "nivel_req": 2, "req": [],
+        "nome": "Cobrir-se",
+        "descricao": "Reação: ao receber um ataque, cubra-se de EA para absorver parte do impacto. Reduza o dano sofrido em BM × 2.",
+    },
+    {
+        "id": "reforco_2", "nivel_req": 4, "req": ["reforco"],
+        "nome": "Reforço II",
+        "descricao": "+1 permanente em rolagens de ataque e Defesa (aumenta para +2 no nível 14). Ativação do Reforço passa a ser gratuita uma vez por rodada.",
     },
     {
         "id": "aura_2", "nivel_req": 5, "req": ["aura"],
         "nome": "Aptidão de Aura II",
-        "descricao": "Aura aprimorada: RD 4 contra todos os tipos de dano. Sustentável por 1 PE/rodada.",
+        "descricao": "Aura aprimorada: Redução de Dano 4 contra todos os tipos de dano. Pode ser mantida indefinidamente gastando 1 PE por rodada.",
     },
     {
-        "id": "reforco", "nivel_req": 2, "req": [],
-        "nome": "Reforço",
-        "descricao": "Ação Bônus: +BM em ataques ou +BM em CA por 1 rodada. Canaliza EA no corpo/arma.",
+        "id": "corpo_lapidado", "nivel_req": 6, "req": ["reforco_2"],
+        "nome": "Corpo Lapidado",
+        "descricao": "Seu corpo foi endurecido pela EA constante. Adicione o BT em testes de Fortitude. Imunidade a veneno e doenças mundanas.",
     },
     {
-        "id": "reforco_2", "nivel_req": 6, "req": ["reforco"],
-        "nome": "Reforço II",
-        "descricao": "+1 permanente em ataques e CA (aumenta para +2 no nível 14).",
+        "id": "escudo_aura", "nivel_req": 8, "req": ["cobrir_se", "aura_2"],
+        "nome": "Escudo de Aura",
+        "descricao": "Reação (2 PE): crie um escudo instantâneo que absorve dano igual a nível × 3. O escudo persiste até ser destruído ou você agir.",
     },
     {
-        "id": "tecnica_maxima", "nivel_req": 15, "req": ["dominio_2"],
-        "nome": "Técnica Máxima",
-        "descricao": "Desencadeie uma versão maximizada de habilidade nível 5 (equivale a nível 6). Custo: 25 PE. Uma vez por cena.",
+        "id": "aura_3", "nivel_req": 10, "req": ["aura_2"],
+        "nome": "Aptidão de Aura III",
+        "descricao": "Sua aura irradia terror palpável. Inimigos que entrem em contato com ela devem passar em TR de Vontade (CD = 8 + BT + mod Presença) ou ficam Abalados por 1 rodada.",
     },
     {
-        "id": "quebra_limite", "nivel_req": 6, "req": [],
+        "id": "reforco_3", "nivel_req": 12, "req": ["corpo_lapidado"],
+        "nome": "Reforço III",
+        "descricao": "+2 permanente em rolagens de ataque e Defesa. Velocidade +3m. O bônus do Reforço pode ser compartilhado com um aliado adjacente (ação bônus).",
+    },
+]
+
+# p.178 — Controle e Leitura
+APTIDOES_CONTROLE_LEITURA = [
+    {
+        "id": "leitura_controle", "nivel_req": 1, "req": [],
+        "nome": "Leitura e Controle",
+        "descricao": "Detecte automaticamente usuários de EA em raio de 30m. Adicione o BT em testes relacionados a energia amaldiçoada.",
+    },
+    {
+        "id": "supressao_energia", "nivel_req": 2, "req": [],
+        "nome": "Supressão de Energia",
+        "descricao": "Ação Bônus: suprima totalmente sua EA. Enquanto suprimida você parece um não-feiticeiro para todos os sentidos. Técnicas e habilidades amaldiçoadas ficam indisponíveis.",
+    },
+    {
+        "id": "controle_refinado", "nivel_req": 3, "req": ["leitura_controle"],
+        "nome": "Controle Refinado",
+        "descricao": "Reduza o custo de PE de suas habilidades em 1 (mínimo 1). Aplica-se uma vez por turno.",
+    },
+    {
+        "id": "quebra_limite", "nivel_req": 4, "req": [],
         "nome": "Quebra de Limite",
-        "descricao": "Transcende limites de gasto de EA por turno. Máximo de PE gasto por turno +BM.",
+        "descricao": "Você transcende o limite padrão de gasto de EA por turno. Seu máximo de PE gasto por rodada aumenta em +BM.",
     },
     {
-        "id": "cesta_oca_vime", "nivel_req": 4, "req": [],
+        "id": "leitura_controle_2", "nivel_req": 6, "req": ["leitura_controle"],
+        "nome": "Leitura e Controle II",
+        "descricao": "Vantagem em testes de Feitiçaria e Ocultismo relacionados a EA. Detecte fontes de EA em raio de 60m e identifique técnicas já encontradas automaticamente.",
+    },
+    {
+        "id": "leitura_residual", "nivel_req": 7, "req": ["leitura_controle_2"],
+        "nome": "Leitura Residual",
+        "descricao": "Detecte rastros de EA em locais ou objetos tocados por técnicas nas últimas 24h. Identifique o usuário se já o encontrou antes (teste de Feitiçaria CD 15).",
+    },
+    {
+        "id": "supressao_total", "nivel_req": 8, "req": ["supressao_energia"],
+        "nome": "Supressão Total",
+        "descricao": "Pode usar habilidades com EA suprimida ao custo dobrado de PE. Enquanto suprimido, qualquer rolagem de percepção contra você tem desvantagem.",
+    },
+    {
+        "id": "leitura_controle_3", "nivel_req": 10, "req": ["controle_refinado", "leitura_controle_2"],
+        "nome": "Leitura e Controle III",
+        "descricao": "Maestria plena: reduza o custo de PE de todas as suas habilidades em 1 (mínimo 1), sem limite de vezes por turno.",
+    },
+    {
+        "id": "controle_absoluto", "nivel_req": 14, "req": ["leitura_controle_3"],
+        "nome": "Controle Absoluto",
+        "descricao": "Você não sofre penalidade por usar múltiplas habilidades em sequência no mesmo turno. Seu PE máximo aumenta permanentemente em +nível.",
+    },
+]
+
+# p.182 — Domínio
+APTIDOES_DOMINIO = [
+    {
+        "id": "dominio_condensado", "nivel_req": 3, "req": [],
+        "nome": "Domínio Condensado",
+        "descricao": "Expanda um domínio menor (raio 1,5m × BM) como Ação Bônus. Custo: metade do normal. Não gera acerto garantido, mas amplifica suas técnicas dentro da área.",
+    },
+    {
+        "id": "dominio_1", "nivel_req": 4, "req": [],
+        "nome": "Expansão de Domínio I",
+        "descricao": "Expanda um Domínio Incompleto: sem barreira física. Raio 4,5m × BM. Permite amplificações de técnica e efeitos ambientais. Sem acerto garantido.",
+    },
+    {
+        "id": "dominio_2", "nivel_req": 8, "req": ["dominio_1"],
+        "nome": "Expansão de Domínio II",
+        "descricao": "Seu domínio pode ser Completo: barreira esférica de 9m de raio. PV da barreira = 6 × nível de aptidão. Duração: 3 + nível de aptidão rodadas.",
+    },
+    {
+        "id": "dominio_rivalidade", "nivel_req": 10, "req": ["dominio_2"],
+        "nome": "Rivalidade de Domínio",
+        "descricao": "Quando dois domínios se sobrepõem, role Feitiçaria oposta. Sucesso: seu domínio prevalece e anula o inimigo. Falha: você é expulso da área.",
+    },
+    {
+        "id": "dominio_3", "nivel_req": 12, "req": ["dominio_2"],
+        "nome": "Expansão de Domínio III",
+        "descricao": "Domínio Completo pode ser Letal (acerto garantido imbuído na barreira) ou Sem Barreira (acerto garantido, esfera até 9m × BM, destrói expansões de fora).",
+    },
+    {
+        "id": "contra_dominio", "nivel_req": 14, "req": ["dominio_3"],
+        "nome": "Contra-Domínio",
+        "descricao": "Reação (8 PE): ao detectar a abertura de um domínio inimigo, abra imediatamente o seu. Realize Rivalidade de Domínio; em caso de vitória o seu prevalece.",
+    },
+    {
+        "id": "dominio_4", "nivel_req": 16, "req": ["dominio_3"],
+        "nome": "Expansão de Domínio IV",
+        "descricao": "Abrir/fechar o domínio é uma Ação Bônus. Custo de manutenção reduzido à metade. A área do Sem Barreira pode ser dobrada quando usado com Domínio Completo.",
+    },
+]
+
+# p.188 — Barreira
+APTIDOES_BARREIRA = [
+    {
+        "id": "barreira_simples", "nivel_req": 1, "req": [],
+        "nome": "Barreira Simples",
+        "descricao": "Ação: crie uma barreira planar com PV = nível × BM. Bloqueia passagem física e absorve dano até ser destruída. Dura 1 hora ou até ser destruída.",
+    },
+    {
+        "id": "cesta_oca_vime", "nivel_req": 3, "req": [],
         "nome": "Cesta Oca de Vime",
-        "descricao": "Reação ao ativar Domínio: gaste 6 PE para criar cesta protetora. Nega efeitos de acerto garantido de expansões, mas não outros efeitos. +2 PE/rodada para sustentar.",
+        "descricao": "Reação ao ser alvo de Expansão de Domínio: gaste 6 PE para criar cesta protetora. Nega o efeito de acerto garantido da expansão (mas não outros efeitos). Custo de manutenção: +2 PE/rodada.",
+    },
+    {
+        "id": "barreira_reforcada", "nivel_req": 4, "req": ["barreira_simples"],
+        "nome": "Barreira Reforçada",
+        "descricao": "PV da barreira dobrado. Pode ser criada como Ação Bônus (custo +2 PE). Pode ser aplicada ao redor de um aliado adjacente como barreira pessoal.",
+    },
+    {
+        "id": "barreira_anti_maldicao", "nivel_req": 5, "req": ["barreira_simples"],
+        "nome": "Barreira Anti-Maldição",
+        "descricao": "Crie uma barreira que bloqueia especificamente maldições e usuários de EA. Não-usuários atravessam livremente; a barreira é invisível para mundanos. Custo: 4 PE.",
     },
     {
         "id": "emocao_petala_decadente", "nivel_req": 6, "req": ["aura", "leitura_controle_2"],
         "nome": "Emoção da Pétala Decadente",
-        "descricao": "Cobre-se de EA reativa. Ao receber acerto garantido de domínio, gaste PE = 2 × nível aptidão para negar o ataque. Requer concentração.",
+        "descricao": "Cubra-se de EA reativa. Ao receber acerto garantido por domínio inimigo, gaste PE = 2 × nível de aptidão para negar o ataque por completo. Requer concentração.",
     },
     {
-        "id": "cobrir_se", "nivel_req": 3, "req": [],
-        "nome": "Cobrir-se",
-        "descricao": "Como Reação, cubra-se de EA para absorver parte de um dano. Reduza o dano em BM × 2.",
+        "id": "cupula_barreira", "nivel_req": 8, "req": ["barreira_reforcada", "barreira_anti_maldicao"],
+        "nome": "Cúpula de Barreira",
+        "descricao": "Crie uma cúpula esférica de raio 9m. Ninguém entra ou sai sem sua permissão. Cria espaço selado ideal para combates de feiticeiros. Custo: 8 PE.",
+    },
+    {
+        "id": "barreira_isolamento", "nivel_req": 12, "req": ["cupula_barreira"],
+        "nome": "Barreira de Isolamento",
+        "descricao": "Versão aprimorada da Cúpula: raio 30m, oculta de observadores externos e instrumentos mundanos. Pode ser sustentada por horas sem custo adicional após 10 PE iniciais.",
+    },
+]
+
+# p.190 — Energia Reversa
+APTIDOES_ENERGIA_REVERSA = [
+    {
+        "id": "energia_reversa", "nivel_req": 1, "req": [],
+        "nome": "Energia Reversa",
+        "descricao": "Inverta o fluxo de EA para criar energia positiva. Suas curas restauram PV reais (sem esta aptidão, curas só geram PV temporários).",
+    },
+    {
+        "id": "cura_acelerada", "nivel_req": 3, "req": ["energia_reversa"],
+        "nome": "Cura Acelerada",
+        "descricao": "Ação Bônus (2 PE): cure a si mesmo em 1d6 + mod Sabedoria PV. Pode ser usado uma vez por rodada.",
+    },
+    {
+        "id": "liberacao_energia_reversa", "nivel_req": 4, "req": ["energia_reversa"],
+        "nome": "Liberação de Energia Reversa",
+        "descricao": "Use EA reversa ofensivamente: seus ataques causam dano adicional igual ao BT contra maldições e seres de magia negativa.",
+    },
+    {
+        "id": "auto_cura", "nivel_req": 7, "req": ["cura_acelerada"],
+        "nome": "Auto-Cura Aprimorada",
+        "descricao": "Ação Bônus (2 PE): cure 2d8 + nível PV em si mesmo. Gaste 4 PE extras para neutralizar venenos ou doenças ativos simultaneamente.",
+    },
+    {
+        "id": "liberacao_reversa_2", "nivel_req": 8, "req": ["liberacao_energia_reversa"],
+        "nome": "Liberação de Energia Reversa II",
+        "descricao": "Sua EA reversa pode ser aplicada em área (cone 4,5m ou esfera 3m). Pode curar aliados com a mesma ação ofensiva gastando 4 PE extras.",
+    },
+    {
+        "id": "cura_total", "nivel_req": 12, "req": ["auto_cura"],
+        "nome": "Cura Total",
+        "descricao": "Uma vez por descanso longo (15 PE): restaure todos os seus PV e cure uma condição permanente que aflige você ou um aliado tocado.",
+    },
+    {
+        "id": "ressurreicao", "nivel_req": 16, "req": ["cura_total"],
+        "nome": "Ressurreição",
+        "descricao": "Ao chegar a 0 PV, gaste 20 PE como reação para se estabilizar com 1 PV em vez de cair. Uma vez por descanso longo. Se não houver PE suficiente, o efeito não ocorre.",
+    },
+]
+
+# p.192 — Especiais
+APTIDOES_ESPECIAIS = [
+    {
+        "id": "amplificacao", "nivel_req": 4, "req": [],
+        "nome": "Amplificação de Técnica",
+        "descricao": "Gaste 2 PE extras ao ativar uma técnica para amplificá-la: +1 dado de dano e +2 na CD de resistência.",
+    },
+    {
+        "id": "tecnica_acumulada", "nivel_req": 6, "req": ["amplificacao"],
+        "nome": "Técnica Acumulada",
+        "descricao": "Passe sua ação acumulando EA. A próxima técnica usada ganha +2 dados de dano e CD +4. Não é possível acumular mais de uma vez consecutiva.",
+    },
+    {
+        "id": "desperto", "nivel_req": 8, "req": [],
+        "nome": "Desperto",
+        "descricao": "Uma vez por combate: acesse um estado de despertar por 3 rodadas. +BT em ataques e dano; habilidades custam 1 PE a menos. Ao fim, sofre Exausto 1.",
+    },
+    {
+        "id": "resonancia_tecnica", "nivel_req": 10, "req": ["tecnica_acumulada"],
+        "nome": "Ressonância de Técnica",
+        "descricao": "Ao usar duas técnicas no mesmo turno (ação + ação bônus), a segunda custa metade do PE e ganha +BT no dano.",
+    },
+    {
+        "id": "tecnica_maxima", "nivel_req": 15, "req": ["dominio_2"],
+        "nome": "Técnica Máxima",
+        "descricao": "Desencadeie a versão maximizada de uma habilidade de 5° nível (equivale a nível 6). Custo: 25 PE. Uma vez por cena.",
+    },
+    {
+        "id": "transcendencia", "nivel_req": 18, "req": ["desperto", "dominio_3"],
+        "nome": "Transcendência",
+        "descricao": "Estado lendário por 5 rodadas: +3 em tudo; técnicas ignoram resistências não-divinas; regenera 10 PV/rodada. Custo: 30 PE. Uma vez por dia.",
+    },
+]
+
+# Catálogo unificado (mantido para compatibilidade com código existente)
+APTIDOES_ADICIONAIS = (
+    APTIDOES_AURA +
+    APTIDOES_CONTROLE_LEITURA +
+    APTIDOES_BARREIRA +
+    APTIDOES_ENERGIA_REVERSA +
+    APTIDOES_ESPECIAIS
+)
+
+TODAS_APTIDOES = APTIDOES_DOMINIO + APTIDOES_ADICIONAIS
+
+# Mapeamento de categorias para o template
+APTIDOES_CATEGORIAS = [
+    {
+        "id": "aura",
+        "nome": "Aptidão de Aura",
+        "icone": "💥",
+        "desc": "Uso de EA como aura protetora, reforço corporal e blindagem.",
+        "pagina": 174,
+        "lista": APTIDOES_AURA,
+    },
+    {
+        "id": "controle_leitura",
+        "nome": "Controle e Leitura",
+        "icone": "👁",
+        "desc": "Percepção, controle fino da EA e supressão de energia.",
+        "pagina": 178,
+        "lista": APTIDOES_CONTROLE_LEITURA,
+    },
+    {
+        "id": "dominio",
+        "nome": "Domínio",
+        "icone": "🌐",
+        "desc": "Criação e aprimoramento de Expansões de Domínio.",
+        "pagina": 182,
+        "lista": APTIDOES_DOMINIO,
+    },
+    {
+        "id": "barreira",
+        "nome": "Barreira",
+        "icone": "🛡",
+        "desc": "Criação de barreiras físicas e proteção contra domínios.",
+        "pagina": 188,
+        "lista": APTIDOES_BARREIRA,
+    },
+    {
+        "id": "energia_reversa",
+        "nome": "Energia Reversa",
+        "icone": "💚",
+        "desc": "Inversão do fluxo de EA para cura e ofensa positiva.",
+        "pagina": 190,
+        "lista": APTIDOES_ENERGIA_REVERSA,
+    },
+    {
+        "id": "especiais",
+        "nome": "Especiais",
+        "icone": "⭐",
+        "desc": "Aptidões raras que transcendem os limites da técnica.",
+        "pagina": 192,
+        "lista": APTIDOES_ESPECIAIS,
     },
 ]
 

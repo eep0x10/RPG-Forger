@@ -66,6 +66,16 @@
       <!-- Preenchido via JS -->
     </div>
 
+    <!-- Repertório do Especialista (apenas especialista_combate) -->
+    <div class="form-section" id="estilo-combate-section" style="display:none">
+      <h3 class="section-title">⚡ Repertório do Especialista – Estilo de Combate</h3>
+      <p class="text-muted">Escolha seu estilo de combate principal. Você receberá novos estilos nos níveis 6 e 12.</p>
+      <div class="spec-grid" id="estilo-combate-cards" style="margin-top:0.8rem">
+        <!-- Preenchido via JS -->
+      </div>
+      <input type="hidden" name="estilo_combate" id="estilo-combate-input" value="">
+    </div>
+
     <!-- Atributo Chave -->
     <div class="form-section" id="atrib-chave-section">
       <h3 class="section-title">🎯 Atributo Chave</h3>
@@ -89,22 +99,45 @@
     <!-- Perícias -->
     <div class="form-section">
       <h3 class="section-title">📚 Perícias</h3>
-      <p id="pericias-instrucoes" class="text-muted">Escolha as perícias conforme os treinamentos da sua especialização.</p>
-      <div class="pericias-grid" id="pericias-grid">
-        {% for p, attr in pericias.items() %}
-        {% set ja_escolhida = p in pericias_anteriores %}
-        {% set mod_val = ((dados.atributos.get(attr, 10) - 10) // 2) %}
-        <label class="pericia-check{% if ja_escolhida %} pericia-ja-escolhida{% endif %}">
-          <input type="checkbox" name="pericias" value="{{ p }}" onchange="verificarPericias()"{% if ja_escolhida %} disabled{% endif %}>
-          <span>{{ p }}{% if p in pericias_treino %} <span class="badge-treino">*T</span>{% endif %} <span class="pericia-attr">({{ attr_abrev[attr] }}) <span class="pericia-mod-live {% if mod_val >= 0 %}mod-pos{% else %}mod-neg{% endif %}">{{ '+' if mod_val >= 0 else '' }}{{ mod_val }}</span></span>{% if ja_escolhida %} <span class="badge-origem">origem</span>{% endif %}</span>
-        </label>
-        {% endfor %}
+
+      <!-- Grupo 1: lista da especialização -->
+      <div id="pericias-lista-section">
+        <p id="pericias-lista-instrucoes" class="text-muted" style="margin-bottom:.6rem"></p>
+        <div class="pericias-grid" id="pericias-lista-grid">
+          {% for p, attr in pericias.items() %}
+          {% set ja_escolhida = p in pericias_anteriores %}
+          {% set mod_val = ((dados.atributos.get(attr, 10) - 10) // 2) %}
+          <label class="pericia-check pericia-lista{% if ja_escolhida %} pericia-ja-escolhida{% endif %}" data-pericia="{{ p }}" style="display:none">
+            <input type="checkbox" name="pericias" value="{{ p }}" class="pcheck-lista" onchange="verificarPericias()"{% if ja_escolhida %} disabled{% endif %}>
+            <span>{{ p }}{% if p in pericias_treino %} <span class="badge-treino">*T</span>{% endif %} <span class="pericia-attr">({{ attr_abrev[attr] }}) <span class="pericia-mod-live {% if mod_val >= 0 %}mod-pos{% else %}mod-neg{% endif %}">{{ '+' if mod_val >= 0 else '' }}{{ mod_val }}</span></span>{% if ja_escolhida %} <span class="badge-origem">origem</span>{% endif %}</span>
+          </label>
+          {% endfor %}
+        </div>
+        <div class="pericias-counter" id="lista-counter" style="display:none">
+          Da lista: <strong id="lista-count">0</strong> / <strong id="lista-max">1</strong>
+        </div>
       </div>
-      <div class="pericias-counter" id="pericias-counter">
-        Selecionadas: <strong id="pericias-count">0</strong> / <strong id="pericias-max">5</strong>
+
+      <!-- Grupo 2: livres -->
+      <div style="margin-top:1rem">
+        <p id="pericias-livres-instrucoes" class="text-muted" style="margin-bottom:.6rem"></p>
+        <div class="pericias-grid" id="pericias-livres-grid">
+          {% for p, attr in pericias.items() %}
+          {% set ja_escolhida = p in pericias_anteriores %}
+          {% set mod_val = ((dados.atributos.get(attr, 10) - 10) // 2) %}
+          <label class="pericia-check pericia-livre{% if ja_escolhida %} pericia-ja-escolhida{% endif %}" data-pericia="{{ p }}">
+            <input type="checkbox" name="pericias" value="{{ p }}" class="pcheck-livre" onchange="verificarPericias()"{% if ja_escolhida %} disabled{% endif %}>
+            <span>{{ p }}{% if p in pericias_treino %} <span class="badge-treino">*T</span>{% endif %} <span class="pericia-attr">({{ attr_abrev[attr] }}) <span class="pericia-mod-live {% if mod_val >= 0 %}mod-pos{% else %}mod-neg{% endif %}">{{ '+' if mod_val >= 0 else '' }}{{ mod_val }}</span></span>{% if ja_escolhida %} <span class="badge-origem">origem</span>{% endif %}</span>
+          </label>
+          {% endfor %}
+        </div>
+        <div class="pericias-counter" id="livres-counter">
+          Livres: <strong id="livres-count">0</strong> / <strong id="livres-max">3</strong>
+        </div>
       </div>
     </div>
 
+    <div id="erros-form" class="form-erros" style="display:none"></div>
     <div class="wizard-actions">
       <a href="javascript:history.back()" class="btn btn-ghost">← Voltar</a>
       <button type="submit" class="btn btn-primary btn-lg" id="btn-proximo">Próximo: Equipamento →</button>
@@ -118,6 +151,7 @@
 const SPECS_DATA = {{ especializacoes | tojson }};
 const ATRIBUTOS_LABELS = {{ atributos_labels | tojson }};
 const ORIGEM_ATUAL = '{{ dados.origem }}';
+const ESTILOS_COMBATE = {{ estilos_combate | tojson }};
 
 const TR_POR_SPEC = {
   'lutador': ['Fortitude', 'Reflexos'],
@@ -126,15 +160,6 @@ const TR_POR_SPEC = {
   'controlador': ['Astúcia', 'Vontade'],
   'suporte': ['Astúcia', 'Vontade'],
   'restringido': null, // ambos
-};
-
-const MAX_PERICIAS = {
-  'lutador': 5,
-  'especialista_combate': 5,
-  'especialista_tecnica': 4,
-  'controlador': 4,
-  'suporte': 5,
-  'restringido': 5,
 };
 
 let specAtual = ORIGEM_ATUAL === 'restringido' ? 'restringido' : 'lutador';
@@ -149,6 +174,7 @@ function selecionarSpec(key, el) {
   atualizarAtribChave(key);
   atualizarTR(key);
   atualizarPericias(key);
+  atualizarEstiloCombate(key);
 }
 
 async function carregarDetalhesSpec(key) {
@@ -231,20 +257,165 @@ function atualizarTR(key) {
 }
 
 function atualizarPericias(key) {
-  const max = MAX_PERICIAS[key] || 5;
-  document.getElementById('pericias-max').textContent = max;
-  document.querySelectorAll('input[name="pericias"]').forEach(c => c.checked = false);
-  document.getElementById('pericias-count').textContent = '0';
+  const spec = SPECS_DATA[key];
+  const pt = spec ? spec.pericias_treinamento : null;
+  const lista = pt ? (pt.lista || []) : [];
+  const excluir = pt ? (pt.excluir || []) : [];
+  const qtdLista = pt ? (pt.qtd_lista || 0) : 0;
+  const qtdLivres = pt ? (pt.qtd_livres || 3) : 3;
+
+  // Reset all checkboxes
+  document.querySelectorAll('input[name="pericias"]').forEach(c => { c.checked = false; c.disabled = c.closest('label')?.classList.contains('pericia-ja-escolhida'); });
+
+  // Lista group: show only skills in the lista array
+  const listaSection = document.getElementById('pericias-lista-section');
+  if (qtdLista > 0 && lista.length > 0) {
+    listaSection.style.display = '';
+    document.getElementById('lista-max').textContent = qtdLista;
+    document.getElementById('lista-count').textContent = '0';
+    document.getElementById('lista-counter').style.display = '';
+    document.getElementById('pericias-lista-instrucoes').textContent =
+      `Escolha ${qtdLista} pericia(s) da lista da especialização:`;
+
+    document.querySelectorAll('.pericia-lista').forEach(label => {
+      const p = label.dataset.pericia;
+      label.style.display = lista.includes(p) ? '' : 'none';
+    });
+  } else {
+    listaSection.style.display = 'none';
+  }
+
+  // Livres group: show all skills except those in lista and excluir
+  document.getElementById('livres-max').textContent = qtdLivres;
+  document.getElementById('livres-count').textContent = '0';
+  document.getElementById('pericias-livres-instrucoes').textContent =
+    `Escolha ${qtdLivres} pericia(s) livremente (qualquer):`;
+
+  document.querySelectorAll('.pericia-livre').forEach(label => {
+    const p = label.dataset.pericia;
+    const ocultar = lista.includes(p) || excluir.includes(p);
+    label.style.display = ocultar ? 'none' : '';
+  });
 }
 
 function verificarPericias() {
-  const max = parseInt(document.getElementById('pericias-max').textContent);
-  const checked = document.querySelectorAll('input[name="pericias"]:checked');
-  document.getElementById('pericias-count').textContent = checked.length;
+  const spec = SPECS_DATA[specAtual];
+  const pt = spec ? spec.pericias_treinamento : null;
+  const lista = pt ? (pt.lista || []) : [];
+  const qtdLista = pt ? (pt.qtd_lista || 0) : 0;
+  const qtdLivres = pt ? (pt.qtd_livres || 3) : 3;
 
-  if (checked.length > max) {
-    event.target.checked = false;
-    document.getElementById('pericias-count').textContent = max;
+  // Count lista selections
+  const listaChecked = [...document.querySelectorAll('.pcheck-lista:checked')].filter(c => !c.closest('label')?.classList.contains('pericia-ja-escolhida'));
+  const livresChecked = [...document.querySelectorAll('.pcheck-livre:checked')].filter(c => !c.closest('label')?.classList.contains('pericia-ja-escolhida'));
+
+  document.getElementById('lista-count').textContent = listaChecked.length;
+  document.getElementById('livres-count').textContent = livresChecked.length;
+
+  const changed = event ? event.target : null;
+  if (!changed) return;
+
+  const isLista = changed.classList.contains('pcheck-lista');
+  const isLivre = changed.classList.contains('pcheck-livre');
+
+  if (isLista && listaChecked.length > qtdLista) {
+    changed.checked = false;
+    document.getElementById('lista-count').textContent = qtdLista;
+    return;
+  }
+
+  if (isLivre && livresChecked.length > qtdLivres) {
+    changed.checked = false;
+    document.getElementById('livres-count').textContent = qtdLivres;
+    return;
+  }
+
+  // If a skill is checked in lista, uncheck it in livres and vice versa
+  const pericia = changed.closest('label')?.dataset.pericia;
+  if (pericia && changed.checked) {
+    if (isLista) {
+      document.querySelectorAll(`.pcheck-livre`).forEach(c => {
+        if (c.closest('label')?.dataset.pericia === pericia) c.checked = false;
+      });
+      const livresRecount = [...document.querySelectorAll('.pcheck-livre:checked')].filter(c => !c.closest('label')?.classList.contains('pericia-ja-escolhida'));
+      document.getElementById('livres-count').textContent = livresRecount.length;
+    } else if (isLivre) {
+      document.querySelectorAll(`.pcheck-lista`).forEach(c => {
+        if (c.closest('label')?.dataset.pericia === pericia) c.checked = false;
+      });
+      const listaRecount = [...document.querySelectorAll('.pcheck-lista:checked')].filter(c => !c.closest('label')?.classList.contains('pericia-ja-escolhida'));
+      document.getElementById('lista-count').textContent = listaRecount.length;
+    }
+  }
+}
+
+function atualizarEstiloCombate(key) {
+  const sec = document.getElementById('estilo-combate-section');
+  if (key !== 'especialista_combate') {
+    sec.style.display = 'none';
+    return;
+  }
+  sec.style.display = '';
+
+  const container = document.getElementById('estilo-combate-cards');
+  container.innerHTML = '';
+
+  Object.entries(ESTILOS_COMBATE).forEach(([id, estilo], i) => {
+    const card = document.createElement('div');
+    card.className = 'spec-card' + (i === 0 ? ' selected' : '');
+    card.dataset.key = id;
+    card.onclick = () => selecionarEstilo(id, card);
+    card.innerHTML = `
+      <div class="spec-header"><h4 class="spec-nome">${estilo.nome}</h4></div>
+      <p class="spec-desc">${estilo.desc}</p>
+      <div class="spec-exemplos text-muted" style="font-size:0.8rem;margin-top:0.4rem">
+        <strong>Nível 1:</strong> ${estilo.efeito_nivel1}<br>
+        <strong>Progressão:</strong> ${estilo.progressao}
+      </div>`;
+    container.appendChild(card);
+  });
+
+  // set default
+  const firstKey = Object.keys(ESTILOS_COMBATE)[0];
+  document.getElementById('estilo-combate-input').value = firstKey;
+}
+
+function selecionarEstilo(id, el) {
+  document.querySelectorAll('#estilo-combate-cards .spec-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('estilo-combate-input').value = id;
+}
+
+function validarFormulario(e) {
+  const erros = [];
+  const spec = SPECS_DATA[specAtual];
+  const pt = spec ? spec.pericias_treinamento : null;
+  const qtdLista = pt ? (pt.qtd_lista || 0) : 0;
+  const qtdLivres = pt ? (pt.qtd_livres || 3) : 3;
+
+  if (specAtual === 'especialista_combate') {
+    const estilo = document.getElementById('estilo-combate-input').value;
+    if (!estilo) erros.push('Selecione um Estilo de Combate (Repertório do Especialista).');
+  }
+
+  const listaChecked = [...document.querySelectorAll('.pcheck-lista:checked')].filter(c => !c.closest('label')?.classList.contains('pericia-ja-escolhida'));
+  const livresChecked = [...document.querySelectorAll('.pcheck-livre:checked')].filter(c => !c.closest('label')?.classList.contains('pericia-ja-escolhida'));
+
+  if (qtdLista > 0 && listaChecked.length < qtdLista) {
+    erros.push(`Escolha ${qtdLista} pericia(s) da lista da especialização (selecionado: ${listaChecked.length}).`);
+  }
+  if (livresChecked.length < qtdLivres) {
+    erros.push(`Escolha ${qtdLivres} pericia(s) livres (selecionado: ${livresChecked.length}).`);
+  }
+
+  const errosDiv = document.getElementById('erros-form');
+  if (erros.length > 0) {
+    e.preventDefault();
+    errosDiv.innerHTML = erros.map(m => `<p>⚠️ ${m}</p>`).join('');
+    errosDiv.style.display = '';
+    errosDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  } else {
+    errosDiv.style.display = 'none';
   }
 }
 
@@ -255,5 +426,8 @@ carregarDetalhesSpec(initKey);
 atualizarAtribChave(initKey);
 atualizarTR(initKey);
 atualizarPericias(initKey);
+atualizarEstiloCombate(initKey);
+
+document.querySelector('.wizard-form').addEventListener('submit', validarFormulario);
 </script>
 {% endblock %}

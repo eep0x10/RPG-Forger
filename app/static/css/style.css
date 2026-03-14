@@ -1126,6 +1126,261 @@ body {
   white-space: nowrap;
 }
 
+/* ── Level Up Upgrades ─────────────────────────────────────────────────────── */
+.luu-wrapper { display: flex; flex-direction: column; gap: 0.5rem; }
+
+.luu-nivel-bloco {
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.luu-desbloqueado { border-color: rgba(124,58,237,0.35); }
+.luu-bloqueado { opacity: 0.55; border-color: var(--border); }
+
+.luu-nivel-label {
+  padding: 0.35rem 0.75rem;
+  display: flex;
+  align-items: center;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+}
+.luu-desbloqueado .luu-nivel-label { background: rgba(124,58,237,0.12); border-bottom-color: rgba(124,58,237,0.25); }
+
+.luu-badge-nivel {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.15rem 0.6rem;
+  border-radius: 99px;
+  letter-spacing: 0.3px;
+}
+.luu-badge-ok { background: rgba(124,58,237,0.25); color: var(--accent-light); }
+.luu-badge-lock { background: var(--bg-input); color: var(--text-muted); }
+
+.luu-itens { display: flex; flex-direction: column; gap: 0; }
+
+.luu-item {
+  border-top: 1px solid rgba(255,255,255,0.04);
+  background: var(--bg-input);
+}
+.luu-item:first-child { border-top: none; }
+
+.luu-item summary {
+  list-style: none;
+  padding: 0.5rem 0.85rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  user-select: none;
+  transition: background 0.15s;
+}
+.luu-item summary::-webkit-details-marker { display: none; }
+.luu-item summary:hover { background: rgba(255,255,255,0.04); }
+
+.luu-expand-hint {
+  margin-left: auto;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  transition: transform 0.2s;
+}
+.luu-item[open] .luu-expand-hint { transform: rotate(90deg); }
+
+.luu-item-desc {
+  padding: 0.1rem 0.85rem 0.65rem 2rem;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  line-height: 1.55;
+  border-left: 2px solid rgba(124,58,237,0.3);
+  margin: 0 0.85rem 0.5rem 0.85rem;
+  border-radius: 0 0 4px 4px;
+}
+
+.luu-tipo-habilidade summary { color: var(--accent-light); }
+.luu-tipo-escolha summary { color: var(--text-secondary, #a0a0c0); }
+.luu-tipo-mecanica summary { color: var(--text-muted); font-weight: 500; }
+
+.luu-bloqueado .luu-item { background: var(--bg-card); }
+.luu-bloqueado .luu-item summary { color: var(--text-muted); cursor: default; }
+
+/* Aptidão inline picker */
+.luu-apt-chosen {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #a78bfa;
+  background: rgba(124,58,237,0.18);
+  padding: 0.1rem 0.55rem;
+  border-radius: 99px;
+  margin-left: 0.4rem;
+}
+.luu-apt-pending {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-left: 0.4rem;
+  font-style: italic;
+}
+.luu-tipo-aptidao summary { color: #a78bfa; }
+.luu-apt-desc-text {
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  line-height: 1.55;
+  margin-bottom: 0.3rem;
+}
+.luu-picker-hidden { display: none; }
+.luu-apt-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  max-height: 280px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+.luu-apt-opcao {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 0.45rem 0.7rem;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.luu-apt-opcao:hover { border-color: rgba(124,58,237,0.5); background: rgba(124,58,237,0.08); }
+.luu-apt-selecionada { border-color: var(--accent) !important; background: rgba(124,58,237,0.15) !important; }
+.luu-apt-usada { opacity: 0.4; cursor: default; }
+.luu-apt-opcao-nome { font-size: 0.83rem; font-weight: 600; color: var(--text); margin-bottom: 0.15rem; }
+.luu-apt-opcao-desc { font-size: 0.77rem; color: var(--text-dim); line-height: 1.45; }
+
+/* ── Catálogo de Aptidões (modal) ──────────────────────────────────────────── */
+.apt-cat-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+.apt-cat-tab {
+  background: var(--bg-input);
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.apt-cat-tab:hover { border-color: var(--border-hover); color: var(--text); }
+.apt-cat-tab-active { border-color: var(--accent); color: var(--accent); background: rgba(124,58,237,0.1); }
+.apt-cat-panel-desc { font-size: 0.82rem; color: var(--text-muted); margin: 0 0 0.85rem; }
+.apt-catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 0.65rem;
+}
+.apt-catalog-card {
+  background: var(--bg-input);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  padding: 0.8rem 0.9rem;
+  transition: border-color 0.15s;
+}
+.apt-catalog-card:hover { border-color: var(--border-hover); }
+.apt-catalog-adquirida { border-color: #22c55e; background: rgba(34,197,94,0.06); }
+.apt-catalog-bloqueada { opacity: 0.45; }
+.apt-catalog-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+.apt-catalog-nome { font-size: 0.88rem; font-weight: 700; color: var(--text); }
+.apt-catalog-nivel { font-size: 0.65rem; color: var(--text-muted); background: var(--bg-card); border: 1px solid var(--border); border-radius: 99px; padding: 0.1rem 0.4rem; white-space: nowrap; }
+.apt-catalog-badge { font-size: 0.65rem; font-weight: 700; border-radius: 99px; padding: 0.1rem 0.45rem; white-space: nowrap; }
+.apt-badge-ok   { background: rgba(34,197,94,0.15);  color: #22c55e; }
+.apt-badge-lock { background: rgba(248,113,113,0.15); color: #f87171; }
+.apt-badge-req  { background: rgba(251,191,36,0.15);  color: #fbbf24; }
+.apt-catalog-desc { font-size: 0.8rem; color: var(--text-dim); line-height: 1.5; margin: 0 0 0.4rem; }
+.apt-catalog-reqs { font-size: 0.7rem; color: var(--text-muted); }
+
+/* Habilidades de especialização inline picker (reutiliza estilos apt) */
+.luu-hab-chosen { font-size: 0.78rem; font-weight: 600; color: #6ee7b7; background: rgba(16,185,129,0.15); padding: 0.1rem 0.55rem; border-radius: 99px; margin-left: 0.4rem; }
+.luu-hab-pending { font-size: 0.78rem; color: var(--text-muted); margin-left: 0.4rem; font-style: italic; }
+.luu-hab-desc-text { font-size: 0.82rem; color: var(--text-dim); line-height: 1.55; margin-bottom: 0.3rem; }
+.luu-tipo-escolha summary { color: #6ee7b7; }
+
+/* ── Níveis de Aptidão ─────────────────────────────────────────────────────── */
+.apt-niveis-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+.apt-nivel-row {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.5rem 0.7rem;
+  transition: border-color 0.15s;
+}
+.apt-nivel-row:hover { border-color: var(--border-hover); }
+.apt-nivel-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.45rem;
+}
+.apt-nivel-icone { font-size: 1rem; }
+.apt-nivel-nome { font-size: 0.82rem; font-weight: 600; color: var(--text); flex: 1; }
+.apt-nivel-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+.apt-nivel-pips {
+  display: flex;
+  gap: 0.3rem;
+}
+.apt-pip {
+  width: 28px;
+  height: 10px;
+  border-radius: 99px;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+.apt-pip:hover { transform: scaleY(1.3); }
+.apt-pip-on { /* color set dynamically via inline style */ }
+
+/* Aptidões lista na ficha */
+.apt-lista-ficha { display: flex; flex-direction: column; gap: 0.25rem; }
+.apt-item-ficha {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  overflow: hidden;
+}
+.apt-item-ficha summary, .apt-item-sem-desc {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.45rem 0.75rem;
+  cursor: pointer;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #a78bfa;
+  list-style: none;
+  user-select: none;
+}
+.apt-item-ficha summary:hover { background: rgba(255,255,255,0.03); }
+.apt-item-ficha summary::-webkit-details-marker { display: none; }
+.apt-item-sem-desc { cursor: default; }
+.apt-item-nome { flex: 1; }
+.apt-item-desc {
+  padding: 0.1rem 0.75rem 0.6rem 0.75rem;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  line-height: 1.5;
+  border-top: 1px solid var(--border);
+}
+
 /* Feitiços */
 #feiticos-lista { display: flex; flex-direction: column; gap: .4rem; }
 .feitico-card { background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; padding: .55rem .75rem; }
