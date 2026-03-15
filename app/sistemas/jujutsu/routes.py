@@ -25,10 +25,37 @@ from .game_data import (
     ESTILOS_COMBATE,
     get_ganhos_nivel, TABELAS_NIVEIS, get_habilidades_catalogadas,
     NIVEIS_APTIDAO_CATEGORIAS, NIVEIS_APTIDAO_LABELS,
+    APOGEU_OPCOES,
+    TECNICAS_INATAS_CATALOGO, TECNICAS_INATAS_NIVEL_PERSONAGEM,
 )
 from . import bp
 
 SISTEMA = "jujutsu"
+
+
+def _catalogo_completo(spec_key, tecnica_catalogo_id):
+    """Returns merged catalog of spec abilities + technique abilities (nivel>0),
+    each ability tagged with tecnica_nome when it comes from the technique."""
+    def _make_id(nome):
+        return ''.join(c if c.isalnum() else '_' for c in nome.lower().replace(" ", "_"))
+
+    habs = get_habilidades_catalogadas(spec_key)
+    if tecnica_catalogo_id and tecnica_catalogo_id in TECNICAS_INATAS_CATALOGO:
+        tecnica = TECNICAS_INATAS_CATALOGO[tecnica_catalogo_id]
+        tecnica_nome = tecnica["nome"]
+        for hab in tecnica.get("habilidades", []):
+            if hab.get("nivel", 0) == 0:
+                continue  # nivel 0 is auto-added at creation
+            char_level = TECNICAS_INATAS_NIVEL_PERSONAGEM.get(hab["nivel"], 99)
+            habs.append({
+                "id": _make_id(hab["nome"]),
+                "nivel": char_level,
+                "nome": hab["nome"],
+                "desc": hab.get("desc", ""),
+                "req": "",
+                "tecnica_nome": tecnica_nome,
+            })
+    return habs
 
 
 # ─── CÁLCULO DA FICHA ──────────────────────────────────────────────────────────
@@ -188,26 +215,40 @@ def criar():
     return render_template("jujutsu/criar_passo1.html",
                            atributos=ATRIBUTOS,
                            atributos_labels=ATRIBUTOS_LABELS,
-                           valores_fixos=VALORES_FIXOS)
+                           valores_fixos=VALORES_FIXOS,
+                           tecnicas_catalogo=TECNICAS_INATAS_CATALOGO)
 
 
 @bp.route("/criar/passo2", methods=["POST"])
 @login_required
 def criar_passo2():
+    tecnica_catalogo_id = request.form.get("tecnica_catalogo_id", "")
+    atributos = {
+        attr: int(request.form.get(f"attr_{attr}", 10))
+        for attr in ATRIBUTOS
+    }
+    # Apply technique creation restrictions/bonuses
+    if tecnica_catalogo_id and tecnica_catalogo_id in TECNICAS_INATAS_CATALOGO:
+        criacao = TECNICAS_INATAS_CATALOGO[tecnica_catalogo_id].get("criacao", {})
+        for attr, max_val in criacao.get("atrib_max", {}).items():
+            atributos[attr] = min(atributos.get(attr, 10), max_val)
+        for attr, bonus in criacao.get("atrib_bonus", {}).items():
+            atributos[attr] = atributos.get(attr, 10) + bonus
+    tecnica_nome = request.form.get("tecnica", "")
+    if not tecnica_nome and tecnica_catalogo_id and tecnica_catalogo_id in TECNICAS_INATAS_CATALOGO:
+        tecnica_nome = TECNICAS_INATAS_CATALOGO[tecnica_catalogo_id]["nome"]
     dados = {
         "nome": request.form.get("nome", ""),
         "jogador": request.form.get("jogador", ""),
-        "tecnica": request.form.get("tecnica", ""),
+        "tecnica": tecnica_nome,
+        "tecnica_catalogo_id": tecnica_catalogo_id,
         "dominio_inato": request.form.get("dominio_inato", ""),
         "tracos": request.form.get("tracos", ""),
         "ideais": request.form.get("ideais", ""),
         "ligacoes": request.form.get("ligacoes", ""),
         "complicacoes": request.form.get("complicacoes", ""),
         "metodo_atributos": request.form.get("metodo_atributos", "fixos"),
-        "atributos": {
-            attr: int(request.form.get(f"attr_{attr}", 10))
-            for attr in ATRIBUTOS
-        }
+        "atributos": atributos,
     }
     session["criacao"] = dados
     return render_template("jujutsu/criar_passo2.html",
@@ -276,10 +317,44 @@ def criar_passo4():
         pericias_list = request.form.getlist("pericias")
         dados["pericias_treinadas"] = {p: "treinado" for p in pericias_list}
 
+    # Inclui perícias de origem que foram escolhidas antes da especialização
+    # (ex: clã personalizado tem pericias em clan_personalizado.pericias, que ficam
+    # desabilitadas no passo3 e portanto não chegam no form submit)
+    if dados.get("origem") == "herdado_personalizado":
+        for p in dados.get("clan_personalizado", {}).get("pericias", []):
+            if p in PERICIAS:
+                dados["pericias_treinadas"].setdefault(p, "treinado")
+
     session["criacao"] = dados
+
+    def _arma_proficiente(arma_nome, trein_lower, armas_data):
+        a = armas_data.get(arma_nome, {})
+        cat = a.get("categoria", "").lower()
+        if "todas as armas" in trein_lower:
+            return True
+        if cat == "—":
+            return True
+        if "simples" in cat and "armas simples" in trein_lower:
+            return True
+        if "marcial" in cat and "marciais" in trein_lower:
+            return True
+        if "distância" in trein_lower or "distancia" in trein_lower:
+            alcance = a.get("alcance", "").lower()
+            props = " ".join(a.get("propriedades", [])).lower()
+            if "arremessável" in props or "alcance [" in props:
+                return True
+            if "arremesso" in alcance or (not alcance.startswith("corpo") and "m" in alcance):
+                return True
+        return False
+
+    spec = ESPECIALIZACOES.get(dados.get("especializacao", ""), {})
+    trein = spec.get("treinamentos", "").lower()
+    armas_proficiencias = {a: _arma_proficiente(a, trein, ARMAS_DADOS) for a in ARMAS_INICIAIS}
+
     return render_template("jujutsu/criar_passo4.html",
                            dados=dados,
                            armas=ARMAS_INICIAIS,
+                           armas_proficiencias=armas_proficiencias,
                            uniformes=UNIFORMES,
                            kits=KITS,
                            especializacoes=ESPECIALIZACOES,
@@ -326,6 +401,15 @@ def criar_salvar():
     dados["notas"] = request.form.get("notas", "")
     dados["habilidades_extras"] = request.form.getlist("habilidades_extras") or []
     dados.setdefault("feiticos", [])
+
+    # Auto-populate feitiços from selected catalog technique (level 0 abilities)
+    cat_id = dados.get("tecnica_catalogo_id", "")
+    if cat_id and cat_id in TECNICAS_INATAS_CATALOGO:
+        cat_entry = TECNICAS_INATAS_CATALOGO[cat_id]
+        existing_names = {f.get("nome") for f in dados["feiticos"]}
+        for hab in [h for h in cat_entry.get("habilidades", []) if h.get("nivel", 0) == 0]:
+            if hab["nome"] not in existing_names:
+                dados["feiticos"].append({"nome": hab["nome"], "desc": hab["desc"]})
 
     pericias_extras_raw = request.form.get("pericias_extras_json", "{}")
     try:
@@ -483,6 +567,81 @@ def ver_personagem(pid):
             "requer_treino": nome in PERICIAS_TREINO,
         }
 
+    # ── Prereq status para catálogo de aptidões ─────────────────────────────
+    _niveis_apt  = dados.get("niveis_aptidao") or {}
+    _adquiridas  = set(dados.get("aptidoes") or [])
+    _attrs       = dados.get("atributos") or {}
+    _pt_raw      = dados.get("pericias_treinadas") or {}
+    _char_nivel  = dados.get("nivel", 1)
+    _apt_nome    = {a["id"]: a["nome"] for a in TODAS_APTIDOES}
+    _cat_nome    = {c["id"]: c["nome"] for c in APTIDOES_CATEGORIAS}
+    _ATTR_LABEL  = {"forca": "Força", "destreza": "Destreza", "constituicao": "Constituição",
+                    "inteligencia": "Inteligência", "sabedoria": "Sabedoria", "presenca": "Presença"}
+
+    def _pericia_nivel(nome):
+        """Retorna 'mestre', 'treinado' ou None para pericias_treinadas."""
+        if isinstance(_pt_raw, dict):
+            return _pt_raw.get(nome)
+        if isinstance(_pt_raw, list):
+            return "treinado" if nome in _pt_raw else None
+        return None
+
+    apt_status = {}
+    for _cat in APTIDOES_CATEGORIAS:
+        _cat_id    = _cat["id"]
+        _nivel_cat = _niveis_apt.get(_cat_id, 0)
+        for _apt in _cat["lista"]:
+            _faltando = []
+
+            # 1. Nível de aptidão na categoria
+            if _nivel_cat < _apt["nivel_req"]:
+                _faltando.append(f"{_cat['nome']} {_apt['nivel_req']}")
+
+            # 2. Aptidões pré-requisito
+            for _r in _apt.get("req", []):
+                if _r not in _adquiridas:
+                    _faltando.append(_apt_nome.get(_r, _r.replace("_", " ").title()))
+
+            # 3. Nível de personagem
+            _rn = _apt.get("req_nivel", 0)
+            if _char_nivel < _rn:
+                _faltando.append(f"Nível {_rn}")
+
+            # 4. Atributos (todos)
+            for _attr, _val in _apt.get("req_atributos", {}).items():
+                if _attrs.get(_attr, 0) < _val:
+                    _faltando.append(f"{_ATTR_LABEL.get(_attr, _attr.title())} {_val}")
+
+            # 5. Atributos (basta um)
+            _ou = _apt.get("req_atributos_ou", [])
+            if _ou and not any(_attrs.get(a, 0) >= v for d in _ou for a, v in d.items()):
+                partes = " ou ".join(
+                    f"{_ATTR_LABEL.get(a, a.title())} {v}"
+                    for d in _ou for a, v in d.items()
+                )
+                _faltando.append(partes)
+
+            # 6. Perícias
+            for _p in _apt.get("req_pericias", []):
+                _pnivel = _pericia_nivel(_p["nome"])
+                _ok_p = (_pnivel in ("treinado", "mestre")) if _p["nivel"] == "treinado" else (_pnivel == "mestre")
+                if not _ok_p:
+                    _label = "Mestre" if _p["nivel"] == "mestre" else "Treinado"
+                    _faltando.append(f"{_label} em {_p['nome']}")
+
+            # 7. Nível de aptidão em outras categorias
+            for _other_cat, _other_nivel in _apt.get("req_apt_nivel", {}).items():
+                if _niveis_apt.get(_other_cat, 0) < _other_nivel:
+                    _faltando.append(f"{_cat_nome.get(_other_cat, _other_cat.title())} {_other_nivel}")
+
+            _ok = len(_faltando) == 0
+            apt_status[_apt["id"]] = {
+                "ok": _ok,
+                "nivel_ok": _nivel_cat >= _apt["nivel_req"],
+                "req_ok": all(r in _adquiridas for r in _apt.get("req", [])),
+                "faltando": _faltando,
+            }
+
     return render_template("jujutsu/ficha.html",
                            pid=pid,
                            dados=dados,
@@ -503,12 +662,16 @@ def ver_personagem(pid):
                            todas_aptidoes=TODAS_APTIDOES,
                            aptidoes_categorias=APTIDOES_CATEGORIAS,
                            aptidoes_por_nivel=dados.get("aptidoes_por_nivel", {}),
-                           habilidades_catalogadas=get_habilidades_catalogadas(
-                               dados.get("especializacao", "lutador")),
+                           habilidades_catalogadas=_catalogo_completo(
+                               dados.get("especializacao", "lutador"),
+                               dados.get("tecnica_catalogo_id", "")),
                            habilidades_por_nivel=dados.get("habilidades_por_nivel", {}),
                            niveis_aptidao_cats=NIVEIS_APTIDAO_CATEGORIAS,
                            niveis_aptidao_labels=NIVEIS_APTIDAO_LABELS,
-                           niveis_aptidao=dados.get("niveis_aptidao", {}))
+                           niveis_aptidao=dados.get("niveis_aptidao", {}),
+                           apt_status=apt_status,
+                           apogeu_opcoes=APOGEU_OPCOES,
+                           apogeu_escolha=dados.get("apogeu_escolha"))
 
 
 @bp.route("/personagem/<int:pid>/editar", methods=["GET", "POST"])
@@ -607,6 +770,9 @@ def subir_nivel(pid):
 
     if spec_key != "restringido":
         dados["aptidoes_pendentes"] = dados.get("aptidoes_pendentes", 0) + 1
+        if novo_nivel % 2 == 0:
+            ganho_apt = 2 if novo_nivel in (10, 20) else 1
+            dados["aptidao_pts_disponivel"] = dados.get("aptidao_pts_disponivel", 0) + ganho_apt
 
     dados["habilidades_pendentes"] = dados.get("habilidades_pendentes", 0) + 1
 
@@ -633,7 +799,7 @@ def subir_nivel(pid):
 
     ganhos_nivel = get_ganhos_nivel(spec_key, novo_nivel)
 
-    catalogo = get_habilidades_catalogadas(spec_key)
+    catalogo = _catalogo_completo(spec_key, dados.get("tecnica_catalogo_id", ""))
     habs_por_nivel = dados.get("habilidades_por_nivel", {})
     used_hab_ids = set(habs_por_nivel.values())
     habilidades_disponiveis = [
@@ -650,6 +816,7 @@ def subir_nivel(pid):
         "bonus_treinamento": dados["calculado"]["bonus_treinamento"],
         "grau": dados["calculado"]["grau"],
         "pontos_atributo_disponivel": dados.get("pontos_atributo_disponivel", 0),
+        "aptidao_pts_disponivel": dados.get("aptidao_pts_disponivel", 0),
         "ganhos_nivel": ganhos_nivel,
         "habilidades_disponiveis": habilidades_disponiveis,
         "mensagem": f"Subiu para o nível {novo_nivel}! Ganhou {ganho_pv} PV."
@@ -726,11 +893,7 @@ def distribuir_atributo(pid):
     if attr not in ATRIBUTOS:
         return jsonify({"erro": "Atributo inválido"}), 400
 
-    limite = 30 if dados.get("especializacao") == "restringido" and attr in ["forca", "destreza", "constituicao"] else 20
     atual = dados["atributos"].get(attr, 10)
-
-    if atual >= limite:
-        return jsonify({"erro": f"Atributo já no limite ({limite})"}), 400
 
     dados["atributos"][attr] = atual + 1
     dados["pontos_atributo_disponivel"] = pontos - 1
@@ -762,6 +925,45 @@ def deletar_personagem(pid):
             conn.execute("DELETE FROM personagens WHERE id=?", (pid,))
             conn.commit()
     return redirect(url_for("jujutsu.index"))
+
+
+@bp.route("/personagem/<int:pid>/api/inventario", methods=["POST"])
+@login_required
+def api_inventario(pid):
+    with get_db() as conn:
+        row = conn.execute("SELECT * FROM personagens WHERE id=?", (pid,)).fetchone()
+    if not row:
+        return jsonify({"erro": "Não encontrado"}), 404
+
+    dados = json.loads(row["dados"])
+    inventario = dados.get("inventario", [])
+    acao = (request.json or {}).get("acao")
+
+    if acao == "add":
+        nome = (request.json.get("nome") or "").strip()
+        if not nome:
+            return jsonify({"erro": "Nome obrigatório"}), 400
+        import uuid
+        inventario.append({
+            "id": str(uuid.uuid4())[:8],
+            "nome": nome,
+            "desc": (request.json.get("desc") or "").strip(),
+        })
+    elif acao == "remove":
+        item_id = request.json.get("id")
+        inventario = [i for i in inventario if i.get("id") != item_id]
+    else:
+        return jsonify({"erro": "Ação inválida"}), 400
+
+    dados["inventario"] = inventario
+    with get_db() as conn:
+        conn.execute(
+            "UPDATE personagens SET dados=?, atualizado_em=CURRENT_TIMESTAMP WHERE id=?",
+            (json.dumps(dados, ensure_ascii=False), pid)
+        )
+        conn.commit()
+
+    return jsonify({"inventario": inventario})
 
 
 # ─── API JUJUTSU ────────────────────────────────────────────────────────────────
@@ -1052,13 +1254,13 @@ def api_escolher_habilidade_spec(pid):
         return jsonify({"erro": "Nível não alcançado"}), 400
 
     spec_key = dados.get("especializacao", "lutador")
-    catalogo = get_habilidades_catalogadas(spec_key)
+    catalogo = _catalogo_completo(spec_key, dados.get("tecnica_catalogo_id", ""))
     hab = next((h for h in catalogo if h["id"] == hab_id), None)
     if not hab:
         return jsonify({"erro": "Habilidade não encontrada"}), 400
 
-    if hab["nivel"] > nivel_char:
-        return jsonify({"erro": f"Requer nível {hab['nivel']}"}), 400
+    if hab["nivel"] > nivel_int:
+        return jsonify({"erro": f"Esta habilidade requer nível {hab['nivel']} — vaga de nível {nivel_int} não permite"}), 400
 
     habs_por_nivel = dados.get("habilidades_por_nivel", {})
     antiga_id = habs_por_nivel.get(nivel_str)
@@ -1099,7 +1301,7 @@ def api_atualizar_nivel_aptidao(pid):
     ids_validos = {c["id"] for c in NIVEIS_APTIDAO_CATEGORIAS}
     if cat_id not in ids_validos:
         return jsonify({"erro": "Categoria inválida"}), 400
-    if not isinstance(nivel, int) or nivel < 0 or nivel > 4:
+    if not isinstance(nivel, int) or nivel < 0 or nivel > 5:
         return jsonify({"erro": "Nível inválido (0-4)"}), 400
     niveis = dados.get("niveis_aptidao", {})
     niveis[cat_id] = nivel
@@ -1107,6 +1309,60 @@ def api_atualizar_nivel_aptidao(pid):
     _save_personagem(pid, dados)
     label = NIVEIS_APTIDAO_LABELS[nivel]
     return jsonify({"sucesso": True, "nivel": nivel, "nome": label["nome"], "cor": label["cor"]})
+
+
+@bp.route("/personagem/<int:pid>/api/ganhar_nivel_aptidao", methods=["POST"])
+@login_required
+def api_ganhar_nivel_aptidao(pid):
+    row, dados = _get_personagem(pid)
+    if not row:
+        return jsonify({"erro": "Não encontrado"}), 404
+    pts = dados.get("aptidao_pts_disponivel", 0)
+    if pts <= 0:
+        return jsonify({"erro": "Sem pontos de aptidão disponíveis"}), 400
+    data = request.json or {}
+    cat_id = data.get("categoria", "")
+    ids_validos = {c["id"] for c in NIVEIS_APTIDAO_CATEGORIAS}
+    if cat_id not in ids_validos:
+        return jsonify({"erro": "Categoria inválida"}), 400
+    niveis = dados.get("niveis_aptidao", {})
+    nivel_atual = niveis.get(cat_id, 0)
+    if nivel_atual >= 5:
+        return jsonify({"erro": "Já está no nível máximo"}), 400
+    novo = nivel_atual + 1
+    niveis[cat_id] = novo
+    dados["niveis_aptidao"] = niveis
+    dados["aptidao_pts_disponivel"] = pts - 1
+    _save_personagem(pid, dados)
+    label = NIVEIS_APTIDAO_LABELS[novo]
+    return jsonify({
+        "sucesso": True,
+        "nivel": novo,
+        "nome": label["nome"],
+        "cor": label["cor"],
+        "pts_restantes": dados["aptidao_pts_disponivel"]
+    })
+
+
+@bp.route("/personagem/<int:pid>/api/escolher_apogeu", methods=["POST"])
+@login_required
+def api_escolher_apogeu(pid):
+    row, dados = _get_personagem(pid)
+    if not row:
+        return jsonify({"erro": "Não encontrado"}), 404
+    if dados.get("especializacao") != "controlador":
+        return jsonify({"erro": "Apenas controladores possuem Apogeu"}), 400
+    if dados.get("nivel", 1) < 6:
+        return jsonify({"erro": "Requer nível 6"}), 400
+    data = request.json or {}
+    opcao_id = data.get("opcao_id", "")
+    ids_validos = {o["id"] for o in APOGEU_OPCOES}
+    if opcao_id not in ids_validos:
+        return jsonify({"erro": "Opção inválida"}), 400
+    dados["apogeu_escolha"] = opcao_id
+    _save_personagem(pid, dados)
+    opcao = next(o for o in APOGEU_OPCOES if o["id"] == opcao_id)
+    return jsonify({"sucesso": True, "nome": opcao["nome"], "desc": opcao["desc"]})
 
 
 @bp.route("/api/invocacao_calc", methods=["POST"])

@@ -109,7 +109,7 @@
           {% set mod_val = ((dados.atributos.get(attr, 10) - 10) // 2) %}
           <label class="pericia-check pericia-lista{% if ja_escolhida %} pericia-ja-escolhida{% endif %}" data-pericia="{{ p }}" style="display:none">
             <input type="checkbox" name="pericias" value="{{ p }}" class="pcheck-lista" onchange="verificarPericias()"{% if ja_escolhida %} disabled{% endif %}>
-            <span>{{ p }}{% if p in pericias_treino %} <span class="badge-treino">*T</span>{% endif %} <span class="pericia-attr">({{ attr_abrev[attr] }}) <span class="pericia-mod-live {% if mod_val >= 0 %}mod-pos{% else %}mod-neg{% endif %}">{{ '+' if mod_val >= 0 else '' }}{{ mod_val }}</span></span>{% if ja_escolhida %} <span class="badge-origem">origem</span>{% endif %}</span>
+            <span>{{ p }}{% if p in pericias_treino %} <span class="badge-treino">*T</span>{% endif %} <span class="pericia-attr">({{ attr_abrev[attr] }}) <span class="pericia-mod-live {% if mod_val >= 0 %}mod-pos{% else %}mod-neg{% endif %}">{{ '+' if mod_val >= 0 else '' }}{{ mod_val }}</span></span>{% if ja_escolhida %} <span class="pericia-badge-origem">origem</span>{% endif %}</span>
           </label>
           {% endfor %}
         </div>
@@ -127,7 +127,7 @@
           {% set mod_val = ((dados.atributos.get(attr, 10) - 10) // 2) %}
           <label class="pericia-check pericia-livre{% if ja_escolhida %} pericia-ja-escolhida{% endif %}" data-pericia="{{ p }}">
             <input type="checkbox" name="pericias" value="{{ p }}" class="pcheck-livre" onchange="verificarPericias()"{% if ja_escolhida %} disabled{% endif %}>
-            <span>{{ p }}{% if p in pericias_treino %} <span class="badge-treino">*T</span>{% endif %} <span class="pericia-attr">({{ attr_abrev[attr] }}) <span class="pericia-mod-live {% if mod_val >= 0 %}mod-pos{% else %}mod-neg{% endif %}">{{ '+' if mod_val >= 0 else '' }}{{ mod_val }}</span></span>{% if ja_escolhida %} <span class="badge-origem">origem</span>{% endif %}</span>
+            <span>{{ p }}{% if p in pericias_treino %} <span class="badge-treino">*T</span>{% endif %} <span class="pericia-attr">({{ attr_abrev[attr] }}) <span class="pericia-mod-live {% if mod_val >= 0 %}mod-pos{% else %}mod-neg{% endif %}">{{ '+' if mod_val >= 0 else '' }}{{ mod_val }}</span></span>{% if ja_escolhida %} <span class="pericia-badge-origem">origem</span>{% endif %}</span>
           </label>
           {% endfor %}
         </div>

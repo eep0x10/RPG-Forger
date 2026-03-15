@@ -30,23 +30,32 @@
       <h3 class="section-title">⚔️ Armas e Itens</h3>
       <div class="form-grid-2">
         <div class="form-group">
-          <label class="form-label">Arma/Item 1</label>
-          <select name="arma1" id="arma1" class="form-input form-select" onchange="mostrarStats('arma1','info-arma1')">
-            <option value="">— Nenhuma —</option>
+          <label class="form-label">Arma/Item 1 <span class="req-star">*</span></label>
+          <div class="arma-picker" id="picker-arma1">
             {% for arma in armas %}
-            <option value="{{ arma }}">{{ arma }}</option>
+            <div class="arma-picker-item" data-value="{{ arma }}" onclick="selecionarArma('arma1', this)">
+              <span class="arma-picker-nome">{{ arma }}</span>
+              {% if armas_proficiencias.get(arma) %}<span class="arma-profic-tag-sm">✦ Prof.</span>{% endif %}
+            </div>
             {% endfor %}
-          </select>
+          </div>
+          <input type="hidden" name="arma1" id="arma1" value="">
           <div id="info-arma1" class="arma-info-card" style="display:none"></div>
         </div>
         <div class="form-group">
-          <label class="form-label">Arma/Item 2</label>
-          <select name="arma2" id="arma2" class="form-input form-select" onchange="mostrarStats('arma2','info-arma2')">
-            <option value="">— Nenhuma —</option>
+          <label class="form-label">Arma/Item 2 <span class="text-muted" style="font-weight:400">(opcional)</span></label>
+          <div class="arma-picker" id="picker-arma2">
+            <div class="arma-picker-item arma-picker-none" data-value="" onclick="selecionarArma('arma2', this)">
+              <span class="arma-picker-nome text-muted">— Nenhuma —</span>
+            </div>
             {% for arma in armas %}
-            <option value="{{ arma }}">{{ arma }}</option>
+            <div class="arma-picker-item" data-value="{{ arma }}" onclick="selecionarArma('arma2', this)">
+              <span class="arma-picker-nome">{{ arma }}</span>
+              {% if armas_proficiencias.get(arma) %}<span class="arma-profic-tag-sm">✦ Prof.</span>{% endif %}
+            </div>
             {% endfor %}
-          </select>
+          </div>
+          <input type="hidden" name="arma2" id="arma2" value="">
           <div id="info-arma2" class="arma-info-card" style="display:none"></div>
         </div>
       </div>
@@ -181,6 +190,7 @@
       </div>
     </div>
 
+    <div id="erros-equip" class="form-erros" style="display:none"></div>
     <div class="wizard-actions">
       <a href="javascript:history.back()" class="btn btn-ghost">← Voltar</a>
       <button type="submit" class="btn btn-primary btn-lg">Próximo: Revisão →</button>
@@ -192,12 +202,32 @@
 const ARMAS_DADOS = {{ armas_dados_json|safe }};
 const ESCUDOS_DADOS = {{ escudos_dados_json|safe }};
 const KITS_DATA = {{ kits | tojson }};
+const SPEC_TREINAMENTOS = {{ especializacoes.get(dados.especializacao, {}).get('treinamentos', '') | tojson }};
 
-function renderArmaInfo(nome) {
+function isProficiente(armaData, nome) {
+  if (!armaData || ESCUDOS_DADOS[nome]) return false;
+  const t = SPEC_TREINAMENTOS.toLowerCase();
+  const cat = (armaData.categoria || '').toLowerCase();
+  if (t.includes('todas as armas')) return true;
+  if (cat === '—') return true;
+  if (cat.includes('simples') && t.includes('armas simples')) return true;
+  if (cat.includes('marcial') && t.includes('marciais')) return true;
+  if (t.includes('distância') || t.includes('distancia')) {
+    const alcance = (armaData.alcance || '').toLowerCase();
+    const props = (armaData.propriedades || []).join(' ').toLowerCase();
+    if (props.includes('arremessável') || props.includes('alcance [')) return true;
+    if (alcance.includes('arremesso') || (!alcance.startsWith('corpo') && alcance.includes('m'))) return true;
+  }
+  return false;
+}
+
+function renderArmaInfo(nome, profic) {
   const a = ARMAS_DADOS[nome] || ESCUDOS_DADOS[nome];
   if (!a) return null;
   const isEscudo = !!ESCUDOS_DADOS[nome];
-  let html = `<div class="ai-nome">${nome}</div><div class="ai-row">`;
+  let header = `<div class="ai-nome">${nome}</div>`;
+  if (profic) header += `<div class="ai-profic-tag">✦ Proficiência</div>`;
+  let html = header + `<div class="ai-row">`;
   if (isEscudo) {
     html += `<div class="ai-stat"><span class="ai-lbl">RD</span><span class="ai-val">${a.rd}</span></div>`;
     html += `<div class="ai-stat"><span class="ai-lbl">Dano Escudo</span><span class="ai-val">${a.dano_escudo}</span></div>`;
@@ -249,23 +279,50 @@ function selecionarKit(radio) {
   document.getElementById('kit-detalhe').style.display = 'block';
 }
 
-function mostrarStats(selectId, infoId) {
-  const nome = document.getElementById(selectId).value;
+function mostrarStats(hiddenId, infoId) {
+  const nome = document.getElementById(hiddenId).value;
   const card = document.getElementById(infoId);
-  if (!nome) { card.style.display = 'none'; return; }
-  const html = renderArmaInfo(nome);
+  if (!nome) { card.style.display = 'none'; card.classList.remove('proficiente'); return; }
+  const a = ARMAS_DADOS[nome] || ESCUDOS_DADOS[nome];
+  const profic = isProficiente(a, nome);
+  const html = renderArmaInfo(nome, profic);
   if (html) {
     card.innerHTML = html;
     card.style.display = 'block';
+    card.classList.toggle('proficiente', profic);
   } else {
     card.style.display = 'none';
+    card.classList.remove('proficiente');
   }
+}
+
+function selecionarArma(slot, el) {
+  const picker = el.closest('.arma-picker');
+  picker.querySelectorAll('.arma-picker-item').forEach(i => i.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById(slot).value = el.dataset.value;
+  mostrarStats(slot, 'info-' + slot);
 }
 </script>
 
 <style>
-.arma-info-card{margin-top:.6rem;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:.8rem;font-size:.85rem}
+.form-erros{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.35);border-radius:10px;padding:.75rem 1rem;margin-bottom:1rem;display:flex;flex-direction:column;gap:.3rem;color:#f87171;font-size:.85rem}
+.req-star{color:#f87171}
+/* Arma picker */
+.arma-picker{max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;background:var(--bg-input)}
+.arma-picker-item{display:flex;align-items:center;gap:.5rem;padding:.4rem .65rem;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.04);transition:background .1s}
+.arma-picker-item:last-child{border-bottom:none}
+.arma-picker-item:hover{background:var(--bg-card-hover)}
+.arma-picker-item.selected{background:rgba(124,58,237,.15);border-left:3px solid var(--accent)}
+.arma-picker-item.selected .arma-picker-nome{color:var(--accent-light)}
+.arma-picker-none{opacity:.6}
+.arma-picker-nome{font-size:.82rem;flex:1}
+.arma-profic-tag-sm{flex-shrink:0;background:rgba(217,119,6,.15);color:#fbbf24;border:1px solid rgba(217,119,6,.4);border-radius:99px;font-size:.62rem;font-weight:700;padding:.1rem .4rem;letter-spacing:.02em}
+/* Arma info card */
+.arma-info-card{margin-top:.6rem;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:.8rem;font-size:.85rem;transition:border-color .2s,box-shadow .2s}
+.arma-info-card.proficiente{border-color:#d97706;box-shadow:0 0 0 2px rgba(217,119,6,.18),0 2px 12px rgba(217,119,6,.12)}
 .ai-nome{font-weight:700;font-size:.95rem;color:var(--accent);margin-bottom:.5rem}
+.ai-profic-tag{display:inline-block;background:rgba(217,119,6,.15);color:#fbbf24;border:1px solid rgba(217,119,6,.4);border-radius:99px;font-size:.68rem;font-weight:700;padding:.15rem .55rem;margin-bottom:.5rem;letter-spacing:.03em}
 .ai-row{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.5rem}
 .ai-stat{background:var(--surface);border-radius:6px;padding:.25rem .5rem}
 .ai-lbl{display:block;font-size:.6rem;text-transform:uppercase;color:var(--muted)}
@@ -322,5 +379,23 @@ function atualizarPreviewDEF() {
 }
 // Inicializar preview
 atualizarPreviewDEF();
+
+// Validação antes de prosseguir
+document.querySelector('.wizard-form').addEventListener('submit', function(e) {
+  const erros = [];
+  if (!document.getElementById('arma1').value) {
+    erros.push('Selecione pelo menos uma Arma/Item (Arma/Item 1).');
+  }
+  if (!document.getElementById('kit-hidden').value) {
+    erros.push('Selecione um Kit de Ferramentas.');
+  }
+  if (erros.length > 0) {
+    e.preventDefault();
+    const el = document.getElementById('erros-equip');
+    el.innerHTML = erros.map(m => `<span>⚠ ${m}</span>`).join('');
+    el.style.display = 'flex';
+    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+});
 </script>
 {% endblock %}

@@ -49,14 +49,6 @@
           <label class="form-label">Nome do Jogador</label>
           <input type="text" name="jogador" class="form-input" placeholder="Seu nome">
         </div>
-        <div class="form-group">
-          <label class="form-label">Técnica Amaldiçoada</label>
-          <input type="text" name="tecnica" class="form-input" placeholder="Ex: Proporções, Ilimitado…">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Domínio Inato</label>
-          <input type="text" name="dominio_inato" class="form-input" placeholder="O espaço interior do personagem">
-        </div>
       </div>
     </div>
 
@@ -79,6 +71,42 @@
         <div class="form-group">
           <label class="form-label">Complicações</label>
           <textarea name="complicacoes" class="form-input form-textarea" placeholder="Fraquezas e obstáculos…"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- campos hidden mantidos para compatibilidade com a rota -->
+    <input type="hidden" name="tecnica" id="input-tecnica-nome" value="">
+    <input type="hidden" name="dominio_inato" value="">
+    <!-- Técnica Amaldiçoada do Catálogo -->
+    <input type="hidden" name="tecnica_catalogo_id" id="tecnica-catalogo-id" value="">
+    <div class="form-section" id="secao-tecnica-catalogo">
+      <div class="teccat-header">
+        <div>
+          <h3 class="section-title" style="margin-bottom:.25rem">⚡ Técnica Amaldiçoada</h3>
+          <p class="text-muted" style="margin:0;font-size:.85rem">Opcional. Escolha uma técnica canônica — todas as habilidades são adicionadas à progressão por nível. Pode influenciar os atributos.</p>
+        </div>
+        <button type="button" class="btn btn-secondary" id="btn-abrir-catalogo" onclick="abrirModalTecnicas()">
+          📖 Ver Técnicas
+        </button>
+      </div>
+
+      <div id="teccat-preview" style="display:none" class="teccat-preview">
+        <div class="teccat-preview-inner">
+          <div class="teccat-prev-left">
+            <div class="teccat-prev-tipo" id="prev-tipo"></div>
+            <div class="teccat-prev-nome" id="prev-nome"></div>
+            <div class="teccat-prev-personagem text-muted" id="prev-personagem"></div>
+          </div>
+          <div class="teccat-prev-tags" id="prev-tags"></div>
+        </div>
+        <div id="teccat-restricao-aviso" class="teccat-restricao" style="display:none">
+          <span class="teccat-restricao-icon">⚠</span>
+          <span id="teccat-restricao-txt"></span>
+        </div>
+        <div class="teccat-prev-actions">
+          <button type="button" class="btn btn-ghost btn-small" onclick="abrirModalTecnicas()">✏ Trocar</button>
+          <button type="button" class="btn btn-ghost btn-small" onclick="limparTecnica()">✕ Remover</button>
         </div>
       </div>
     </div>
@@ -169,6 +197,8 @@
             <button type="button" class="btn-round" onclick="alterarAtrib('{{ attr }}', 1)">+</button>
           </div>
           <div class="atrib-mod" id="mod-{{ attr }}">+0</div>
+          <div class="atrib-bonus-tecnica" id="bonus-tecnica-{{ attr }}" style="display:none"></div>
+          <div class="atrib-restricao-msg" id="restricao-{{ attr }}" style="display:none"></div>
           <div class="atrib-rolagem-result" id="rolagem-{{ attr }}"></div>
         </div>
         {% endfor %}
@@ -183,33 +213,197 @@
   </form>
 </div>
 
+<!-- ═══ MODAL DE CATÁLOGO DE TÉCNICAS ══════════════════════════════════════════ -->
+<div id="modal-tecnicas" class="tcat-overlay" style="display:none" onclick="fecharModalFora(event)">
+  <div class="tcat-modal">
+
+    <!-- Header -->
+    <div class="tcat-header">
+      <div>
+        <h2 class="tcat-titulo">⚡ Catálogo de Técnicas Inatas</h2>
+        <p class="tcat-subtitulo">Clique em uma técnica para ver detalhes e habilidades por nível. Técnicas com ⚠ têm restrições na criação.</p>
+      </div>
+      <button type="button" class="tcat-close" onclick="fecharModalTecnicas()">✕</button>
+    </div>
+
+    <!-- Body: alterna entre lista e detalhe -->
+    <div class="tcat-body" id="tcat-body">
+
+      <!-- ── VISTA LISTA ──────────────────────────────────────────────────────── -->
+      <div id="tcat-lista" class="tcat-lista-view">
+        <div id="tcat-grid" class="tcat-grid">
+          <!-- Cards gerados por JS por categoria -->
+        </div>
+      </div>
+
+      <!-- ── VISTA DETALHE ───────────────────────────────────────────────────── -->
+      <div id="tcat-detalhe" class="tcat-detalhe-view" style="display:none">
+        <div class="tcat-det-nav">
+          <button type="button" class="btn btn-ghost btn-small" onclick="voltarLista()">← Todas as técnicas</button>
+          <span class="tcat-det-posicao" id="det-posicao"></span>
+        </div>
+
+        <div class="tcat-det-header">
+          <div class="tcat-det-meta">
+            <span class="tcat-det-tipo" id="det-tipo"></span>
+            <span class="tcat-det-req" id="det-req" style="display:none"></span>
+          </div>
+          <h3 class="tcat-det-nome" id="det-nome"></h3>
+          <div class="tcat-det-personagem" id="det-personagem"></div>
+        </div>
+
+        <p class="tcat-det-desc" id="det-desc"></p>
+
+        <div id="det-func" class="tcat-det-func"></div>
+
+        <!-- Criação aviso -->
+        <div id="det-criacao" class="tcat-criacao-box" style="display:none">
+          <div class="tcat-criacao-title">⚠ Efeitos na Criação do Personagem</div>
+          <div id="det-criacao-info"></div>
+          <div id="det-criacao-tags" class="tcat-criacao-tags"></div>
+        </div>
+
+        <!-- Tabs de níveis -->
+        <div class="tcat-tabs-header" id="det-tabs-btns"></div>
+        <div class="tcat-tabs-content" id="det-tabs-content"></div>
+      </div>
+
+    </div><!-- /tcat-body -->
+
+    <!-- Footer -->
+    <div class="tcat-footer">
+      <div class="tcat-footer-sel" id="tcat-footer-sel" style="display:none">
+        <span class="tcat-footer-nome" id="tcat-footer-nome"></span>
+      </div>
+      <div style="display:flex;gap:.65rem;margin-left:auto">
+        <button type="button" class="btn btn-ghost" onclick="fecharModalTecnicas()">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="btn-confirmar" disabled onclick="confirmarTecnica()">
+          Confirmar Técnica
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
 <style>
-.valor-chip { cursor: grab; transition: transform .1s, opacity .2s; user-select: none; }
-.valor-chip:active { cursor: grabbing; }
-.valor-chip.used { opacity: .25; pointer-events: none; cursor: default; }
-.valor-chip.dragging-source { opacity: .4; transform: scale(.9); }
-.valores-pool.pool-drag-over { border: 2px dashed var(--accent); border-radius: 8px; background: rgba(124,58,237,.06); }
-.atrib-card[draggable="true"] { cursor: grab; }
-.atrib-card[draggable="true"]:active { cursor: grabbing; }
-.atrib-card.drag-over { border-color: var(--accent) !important; box-shadow: 0 0 14px rgba(124,58,237,.35); }
-.atrib-card.erro { border-color: rgba(239,68,68,.7) !important; background: rgba(239,68,68,.06); }
-.form-erros { background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.35); border-radius: 10px; padding: .75rem 1rem; margin-bottom: 1rem; display: flex; flex-direction: column; gap: .3rem; color: #f87171; font-size: .85rem; }
+/* ── Técnica catálogo section ────────────────────────────────────────────────── */
+.teccat-header{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.teccat-preview{background:rgba(124,58,237,.06);border:1.5px solid var(--accent);border-radius:10px;padding:.85rem 1rem;margin-top:.75rem;display:flex;flex-direction:column;gap:.6rem}
+.teccat-preview-inner{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.teccat-prev-left{display:flex;flex-direction:column;gap:.15rem}
+.teccat-prev-tipo{font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted)}
+.teccat-prev-nome{font-weight:700;font-size:1rem;color:#c4b5fd}
+.teccat-prev-personagem{font-size:.82rem}
+.teccat-prev-tags{display:flex;gap:.35rem;flex-wrap:wrap;align-items:flex-start}
+.teccat-prev-actions{display:flex;gap:.5rem}
+.teccat-restricao{display:flex;align-items:flex-start;gap:.5rem;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);border-radius:8px;padding:.55rem .75rem;font-size:.82rem;color:#fbbf24}
+.teccat-restricao-icon{font-size:1rem;flex-shrink:0;margin-top:.05rem}
+
+/* Bônus/restrição nos cards de atributo */
+.atrib-bonus-tecnica{font-size:.72rem;color:#10b981;font-weight:600;text-align:center;margin-top:.1rem}
+.atrib-restricao-msg{font-size:.7rem;color:#f59e0b;font-weight:600;text-align:center;margin-top:.1rem}
+.atrib-card.atrib-restrito{border-color:rgba(245,158,11,.5)!important;background:rgba(245,158,11,.04)!important}
+.atrib-card.atrib-bloqueado input{background:rgba(245,158,11,.1)!important;color:#fbbf24!important}
+
+/* Tags */
+.tag-chip{display:inline-flex;align-items:center;font-size:.68rem;font-weight:600;padding:.2rem .5rem;border-radius:99px;border:1px solid}
+.tag-chip-restricao{background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.35);color:#fbbf24}
+.tag-chip-origem{background:rgba(139,92,246,.12);border-color:rgba(139,92,246,.35);color:#a78bfa}
+.tag-chip-default{background:rgba(99,102,241,.1);border-color:rgba(99,102,241,.3);color:#818cf8}
+.tag-chip-positivo{background:rgba(16,185,129,.1);border-color:rgba(16,185,129,.3);color:#34d399}
+
+/* ── Modal ─────────────────────────────────────────────────────────────────── */
+.tcat-overlay{position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:9000;display:flex;align-items:flex-start;justify-content:center;padding:1.5rem 1rem;overflow-y:auto}
+.tcat-modal{background:var(--bg-card);border:1.5px solid var(--border);border-radius:14px;width:100%;max-width:960px;min-height:0;display:flex;flex-direction:column;max-height:calc(100vh - 3rem);box-shadow:0 24px 80px rgba(0,0,0,.7)}
+.tcat-header{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;padding:1.1rem 1.4rem .85rem;border-bottom:1px solid var(--border);flex-shrink:0}
+.tcat-titulo{margin:0;font-size:1.15rem;font-weight:800;color:var(--text)}
+.tcat-subtitulo{margin:.25rem 0 0;font-size:.82rem;color:var(--text-muted)}
+.tcat-close{background:none;border:none;color:var(--text-muted);font-size:1.25rem;cursor:pointer;padding:.2rem .45rem;border-radius:6px;line-height:1;transition:color .15s,background .15s}
+.tcat-close:hover{color:var(--text);background:rgba(255,255,255,.07)}
+.tcat-body{flex:1;overflow-y:auto;padding:1rem 1.4rem;background:var(--bg-card)}
+.tcat-footer{display:flex;align-items:center;gap:.75rem;padding:.85rem 1.4rem;border-top:1px solid var(--border);flex-shrink:0;background:var(--bg-card)}
+.tcat-footer-sel{display:flex;align-items:center;gap:.5rem;flex:1;min-width:0}
+.tcat-footer-nome{font-size:.88rem;font-weight:600;color:#c4b5fd;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ── Grid de cards ─────────────────────────────────────────────────────────── */
+.tcat-cat-titulo{font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);margin:1rem 0 .55rem;padding-bottom:.35rem;border-bottom:1px solid rgba(124,58,237,.2)}
+.tcat-cat-titulo:first-child{margin-top:0}
+.tcat-grid{display:flex;flex-direction:column}
+.tcat-cards-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.6rem;margin-bottom:.75rem}
+.tcat-card{background:var(--bg-input);border:1.5px solid var(--border);border-radius:10px;padding:.75rem .9rem;cursor:pointer;transition:border-color .15s,background .15s,box-shadow .15s;position:relative}
+.tcat-card:hover{border-color:var(--border-hover);background:var(--bg-card-hover)}
+.tcat-card.selected{border-color:var(--accent);background:rgba(124,58,237,.12);box-shadow:0 0 12px rgba(124,58,237,.25)}
+.tcat-card-tipo{font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted);margin-bottom:.2rem}
+.tcat-card-nome{font-weight:700;font-size:.9rem;margin-bottom:.1rem;line-height:1.3}
+.tcat-card-personagem{font-size:.75rem;color:var(--text-muted);margin-bottom:.35rem}
+.tcat-card-desc{font-size:.77rem;color:var(--text-muted);line-height:1.45;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.tcat-card-criacao-badge{position:absolute;top:.45rem;right:.55rem;font-size:.65rem;background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.35);color:#fbbf24;border-radius:99px;padding:.1rem .4rem;font-weight:700}
+
+/* ── Detalhe ───────────────────────────────────────────────────────────────── */
+.tcat-detalhe-view{}
+.tcat-det-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:.85rem}
+.tcat-det-posicao{font-size:.78rem;color:var(--text-muted)}
+.tcat-det-header{margin-bottom:.75rem}
+.tcat-det-meta{display:flex;align-items:center;gap:.55rem;margin-bottom:.3rem;flex-wrap:wrap}
+.tcat-det-tipo{font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);background:var(--bg-input);border:1px solid var(--border);border-radius:99px;padding:.15rem .55rem}
+.tcat-det-req{font-size:.72rem;background:rgba(139,92,246,.12);border:1px solid rgba(139,92,246,.35);color:#a78bfa;border-radius:99px;padding:.15rem .55rem}
+.tcat-det-nome{margin:.1rem 0 .2rem;font-size:1.3rem;font-weight:800;color:#c4b5fd}
+.tcat-det-personagem{font-size:.88rem;color:var(--text-muted)}
+.tcat-det-desc{font-size:.88rem;color:var(--text-muted);line-height:1.55;margin-bottom:.75rem}
+.tcat-det-func{margin-bottom:.85rem}
+.tcat-det-func-item{font-size:.83rem;color:var(--text-muted);padding-left:1rem;position:relative;margin:.22rem 0;line-height:1.45}
+.tcat-det-func-item::before{content:"•";position:absolute;left:0;color:var(--accent)}
+
+/* Criação box */
+.tcat-criacao-box{background:rgba(245,158,11,.07);border:1.5px solid rgba(245,158,11,.3);border-radius:10px;padding:.85rem 1rem;margin-bottom:.85rem}
+.tcat-criacao-title{font-weight:700;font-size:.82rem;color:#fbbf24;margin-bottom:.45rem;text-transform:uppercase;letter-spacing:.04em}
+.tcat-criacao-info{font-size:.83rem;color:#fde68a;line-height:1.5}
+.tcat-criacao-tags{display:flex;gap:.35rem;flex-wrap:wrap;margin-top:.5rem}
+
+/* Tabs de nível */
+.tcat-tabs-header{display:flex;gap:.35rem;flex-wrap:wrap;margin-bottom:.85rem;border-bottom:2px solid var(--border);padding-bottom:.5rem}
+.tcat-tab-btn{padding:.35rem .75rem;border-radius:7px 7px 0 0;border:1.5px solid var(--border);border-bottom:none;background:var(--bg-card);color:var(--text-muted);cursor:pointer;font-size:.8rem;font-weight:600;transition:color .15s,background .15s,border-color .15s;position:relative;bottom:-2px}
+.tcat-tab-btn:hover{color:var(--text);background:rgba(124,58,237,.06)}
+.tcat-tab-btn.ativo{border-color:var(--accent);background:rgba(124,58,237,.1);color:#c4b5fd}
+.tcat-hab-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:.65rem}
+.tcat-hab{background:var(--bg-input);border:1px solid var(--border);border-radius:8px;padding:.65rem .85rem}
+.tcat-hab-nome{font-weight:700;font-size:.88rem;margin-bottom:.2rem}
+.tcat-hab-desc{font-size:.8rem;color:var(--text-muted);line-height:1.45}
+
+/* Outros */
+.valor-chip{cursor:grab;transition:transform .1s,opacity .2s;user-select:none}
+.valor-chip:active{cursor:grabbing}
+.valor-chip.used{opacity:.25;pointer-events:none;cursor:default}
+.valor-chip.dragging-source{opacity:.4;transform:scale(.9)}
+.valores-pool.pool-drag-over{border:2px dashed var(--accent);border-radius:8px;background:rgba(124,58,237,.06)}
+.atrib-card[draggable="true"]{cursor:grab}
+.atrib-card[draggable="true"]:active{cursor:grabbing}
+.atrib-card.drag-over{border-color:var(--accent)!important;box-shadow:0 0 14px rgba(124,58,237,.35)}
+.atrib-card.erro{border-color:rgba(239,68,68,.7)!important;background:rgba(239,68,68,.06)}
+.form-erros{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.35);border-radius:10px;padding:.75rem 1rem;margin-bottom:1rem;display:flex;flex-direction:column;gap:.3rem;color:#f87171;font-size:.85rem}
 </style>
 {% endblock %}
 
 {% block scripts %}
 <script>
+const TECNICAS_DATA = {{ tecnicas_catalogo | tojson }};
 const VALORES_FIXOS = [15, 14, 13, 12, 10, 8];
 const CUSTOS_PONTOS = {8: -2, 9: -1, 10: 0, 11: 2, 12: 3, 13: 4, 14: 5, 15: 7};
 const ATRIBUTOS = ['forca', 'destreza', 'constituicao', 'inteligencia', 'sabedoria', 'presenca'];
+const ATRIB_NOMES = {forca:'Força', destreza:'Destreza', constituicao:'Constituição', inteligencia:'Inteligência', sabedoria:'Sabedoria', presenca:'Presença'};
 
 let metodoAtual = 'fixos';
-let valoresUsados = {};   // attrName -> value (apenas no modo fixos)
+let valoresUsados = {};
 let pontosDisp = 17;
-let dragging = null;      // { source: 'pool'|'attr', attrName: null|string, value: number }
+let dragging = null;
 let rolagemCompleta = false;
+let tecnicaSelecionadaTemp = null;
+let tecnicaSelecionadaId = null;
+let restricaoAtual = {}; // {attr: max_value}
+let bonusAtual = {};    // {attr: bonus}
 
-// ── Utilitários ────────────────────────────────────────────────────────────────
+// ── Utilitários de atributo ──────────────────────────────────────────────────
 
 function atualizarMod(attr) {
   const val = parseInt(document.getElementById(`input-${attr}`).value) || 10;
@@ -250,7 +444,58 @@ function atualizarChips() {
   });
 }
 
-// ── Modo: métodos ──────────────────────────────────────────────────────────────
+// ── Restrições de técnica nos atributos ─────────────────────────────────────
+
+function aplicarRestricoesTecnica(catId) {
+  // Reset first
+  ATRIBUTOS.forEach(attr => {
+    const inp = document.getElementById(`input-${attr}`);
+    const card = document.getElementById(`card-${attr}`);
+    const restricaoEl = document.getElementById(`restricao-${attr}`);
+    const bonusEl = document.getElementById(`bonus-tecnica-${attr}`);
+    card.classList.remove('atrib-restrito', 'atrib-bloqueado');
+    restricaoEl.style.display = 'none';
+    bonusEl.style.display = 'none';
+    inp.removeAttribute('data-max-tecnica');
+    inp.removeAttribute('data-bloqueado');
+  });
+  restricaoAtual = {};
+  bonusAtual = {};
+
+  if (!catId || !TECNICAS_DATA[catId]) return;
+  const criacao = TECNICAS_DATA[catId].criacao || {};
+
+  // Apply max restrictions
+  const atribMax = criacao.atrib_max || {};
+  for (const [attr, maxVal] of Object.entries(atribMax)) {
+    restricaoAtual[attr] = maxVal;
+    const inp = document.getElementById(`input-${attr}`);
+    const card = document.getElementById(`card-${attr}`);
+    const restricaoEl = document.getElementById(`restricao-${attr}`);
+    inp.setAttribute('data-max-tecnica', maxVal);
+    inp.setAttribute('data-bloqueado', '1');
+    // Clamp current value
+    if (parseInt(inp.value) > maxVal) {
+      inp.value = maxVal;
+      if (valoresUsados[attr] !== undefined) valoresUsados[attr] = maxVal;
+      atualizarMod(attr);
+    }
+    card.classList.add('atrib-restrito', 'atrib-bloqueado');
+    restricaoEl.textContent = `Máx. ${maxVal} (restrição)`;
+    restricaoEl.style.display = 'block';
+  }
+
+  // Show attribute bonuses
+  const atribBonus = criacao.atrib_bonus || {};
+  for (const [attr, bonus] of Object.entries(atribBonus)) {
+    bonusAtual[attr] = bonus;
+    const bonusEl = document.getElementById(`bonus-tecnica-${attr}`);
+    bonusEl.textContent = `+${bonus} da técnica`;
+    bonusEl.style.display = 'block';
+  }
+}
+
+// ── Método de atributos ──────────────────────────────────────────────────────
 
 function setMetodo(m) {
   metodoAtual = m;
@@ -269,17 +514,18 @@ function resetarAtributos() {
     document.getElementById(`input-${a}`).readOnly = (metodoAtual !== 'pontos');
     document.getElementById(`rolagem-${a}`).textContent = '';
   });
+  // Re-apply restrictions after reset
+  aplicarRestricoesTecnica(tecnicaSelecionadaId);
   atualizarChips();
   limparErros();
   const el = document.getElementById('pontos-disp');
   if (el) el.textContent = pontosDisp;
 }
 
-// ── Modo fixos: clique ─────────────────────────────────────────────────────────
+// ── Modo fixos ────────────────────────────────────────────────────────────────
 
 function atribuirValor(valor) {
   if (metodoAtual !== 'fixos') return;
-  // Verifica se o valor ainda está disponível na pool
   const atribuidos = Object.values(valoresUsados);
   const disponiveis = VALORES_FIXOS.filter(v => {
     const idx = atribuidos.indexOf(v);
@@ -287,24 +533,28 @@ function atribuirValor(valor) {
     return true;
   });
   if (!disponiveis.includes(valor)) return;
-  // Atribui ao próximo slot vazio
   for (const a of ATRIBUTOS) {
-    if (valoresUsados[a] === undefined) {
-      valoresUsados[a] = valor;
-      setAttrValue(a, valor);
+    if (valoresUsados[a] === undefined && !document.getElementById(`input-${a}`).getAttribute('data-bloqueado')) {
+      const maxTec = restricaoAtual[a];
+      const safeVal = maxTec !== undefined ? Math.min(valor, maxTec) : valor;
+      valoresUsados[a] = safeVal;
+      setAttrValue(a, safeVal);
       atualizarChips();
       return;
     }
   }
 }
 
-// ── Modo pontos: botões +/− ────────────────────────────────────────────────────
+// ── Modo pontos ───────────────────────────────────────────────────────────────
 
 function alterarAtrib(attr, delta) {
   if (metodoAtual !== 'pontos') return;
   const inp = document.getElementById(`input-${attr}`);
+  if (inp.getAttribute('data-bloqueado')) return;
   const val = parseInt(inp.value) || 10;
-  const novoVal = Math.max(8, Math.min(15, val + delta));
+  const maxTec = restricaoAtual[attr];
+  const maxVal = maxTec !== undefined ? Math.min(15, maxTec) : 15;
+  const novoVal = Math.max(8, Math.min(maxVal, val + delta));
   const diff = (CUSTOS_PONTOS[novoVal] || 0) - (CUSTOS_PONTOS[val] || 0);
   if (diff > 0 && pontosDisp < diff) return;
   pontosDisp -= diff;
@@ -314,20 +564,26 @@ function alterarAtrib(attr, delta) {
   if (el) el.textContent = pontosDisp;
 }
 
-// ── Modo rolagem ───────────────────────────────────────────────────────────────
+// ── Modo rolagem ──────────────────────────────────────────────────────────────
 
 async function rolarTodos() {
   rolagemCompleta = false;
   document.getElementById('rolagem-resultados').innerHTML = '';
   for (const a of ATRIBUTOS) {
+    if (document.getElementById(`input-${a}`).getAttribute('data-bloqueado')) {
+      document.getElementById(`rolagem-${a}`).textContent = '';
+      continue;
+    }
     const resp = await fetch('{{ url_for("jujutsu.rolar_dados") }}', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({tipo: '4d6drop'})
     });
     const data = await resp.json();
-    document.getElementById(`input-${a}`).value = data.resultado;
-    document.getElementById(`rolagem-${a}`).textContent = `[${data.rolls.join(', ')}]`;
+    const maxTec = restricaoAtual[a];
+    const finalVal = maxTec !== undefined ? Math.min(data.resultado, maxTec) : data.resultado;
+    document.getElementById(`input-${a}`).value = finalVal;
+    document.getElementById(`rolagem-${a}`).textContent = `[${data.rolls.join(', ')}]${maxTec !== undefined ? ` → máx ${maxTec}` : ''}`;
     document.getElementById(`card-${a}`).classList.remove('erro');
     atualizarMod(a);
   }
@@ -335,10 +591,9 @@ async function rolarTodos() {
   limparErros();
 }
 
-// ── Drag & Drop ────────────────────────────────────────────────────────────────
+// ── Drag & Drop ───────────────────────────────────────────────────────────────
 
 function setupDragDrop() {
-  // Pool chips: arrastar para attr card
   document.querySelectorAll('#valores-pool .valor-chip').forEach(chip => {
     chip.addEventListener('dragstart', e => {
       if (chip.classList.contains('used')) { e.preventDefault(); return; }
@@ -349,7 +604,6 @@ function setupDragDrop() {
     chip.addEventListener('dragend', () => chip.classList.remove('dragging-source'));
   });
 
-  // Attr cards: drag para trocar, drop para receber
   document.querySelectorAll('.atrib-card').forEach(card => {
     const attr = card.dataset.attr;
 
@@ -359,40 +613,37 @@ function setupDragDrop() {
       card.classList.add('dragging-source');
       e.dataTransfer.effectAllowed = 'move';
     });
-
     card.addEventListener('dragend', () => {
       card.classList.remove('dragging-source');
       document.querySelectorAll('.atrib-card').forEach(c => c.classList.remove('drag-over'));
     });
-
     card.addEventListener('dragover', e => {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'move';
+      e.preventDefault(); e.dataTransfer.dropEffect = 'move';
       document.querySelectorAll('.atrib-card').forEach(c => c.classList.remove('drag-over'));
       card.classList.add('drag-over');
     });
-
     card.addEventListener('dragleave', e => {
-      // só remove se saiu para fora do card (não para um filho)
       if (!card.contains(e.relatedTarget)) card.classList.remove('drag-over');
     });
-
     card.addEventListener('drop', e => {
       e.preventDefault();
       card.classList.remove('drag-over');
       if (!dragging || metodoAtual !== 'fixos') return;
+      // Don't drop on bloqueado
+      if (document.getElementById(`input-${attr}`).getAttribute('data-bloqueado')) return;
 
       if (dragging.source === 'pool') {
-        // Pool → card: se o card já tinha valor, ele volta pra pool (via atualizarChips)
         if (valoresUsados[attr] !== undefined) delete valoresUsados[attr];
-        valoresUsados[attr] = dragging.value;
-        setAttrValue(attr, dragging.value);
-
+        const maxTec = restricaoAtual[attr];
+        const safeVal = maxTec !== undefined ? Math.min(dragging.value, maxTec) : dragging.value;
+        valoresUsados[attr] = safeVal;
+        setAttrValue(attr, safeVal);
       } else if (dragging.source === 'attr' && dragging.attrName !== attr) {
-        // Card → card: troca os valores
         const destValue = valoresUsados[attr];
-        valoresUsados[attr] = dragging.value;
-        setAttrValue(attr, dragging.value);
+        const maxTec = restricaoAtual[attr];
+        const safeVal = maxTec !== undefined ? Math.min(dragging.value, maxTec) : dragging.value;
+        valoresUsados[attr] = safeVal;
+        setAttrValue(attr, safeVal);
         if (destValue !== undefined) {
           valoresUsados[dragging.attrName] = destValue;
           setAttrValue(dragging.attrName, destValue);
@@ -401,25 +652,17 @@ function setupDragDrop() {
           clearAttr(dragging.attrName);
         }
       }
-
       dragging = null;
       atualizarChips();
     });
   });
 
-  // Pool: receber card arrastado de volta (devolve à pool)
   const pool = document.getElementById('valores-pool');
   if (pool) {
-    pool.addEventListener('dragover', e => {
-      e.preventDefault();
-      pool.classList.add('pool-drag-over');
-    });
-    pool.addEventListener('dragleave', e => {
-      if (!pool.contains(e.relatedTarget)) pool.classList.remove('pool-drag-over');
-    });
+    pool.addEventListener('dragover', e => { e.preventDefault(); pool.classList.add('pool-drag-over'); });
+    pool.addEventListener('dragleave', e => { if (!pool.contains(e.relatedTarget)) pool.classList.remove('pool-drag-over'); });
     pool.addEventListener('drop', e => {
-      e.preventDefault();
-      pool.classList.remove('pool-drag-over');
+      e.preventDefault(); pool.classList.remove('pool-drag-over');
       if (!dragging || dragging.source !== 'attr') return;
       delete valoresUsados[dragging.attrName];
       clearAttr(dragging.attrName);
@@ -429,13 +672,12 @@ function setupDragDrop() {
   }
 }
 
-// ── Validação ──────────────────────────────────────────────────────────────────
+// ── Validação ─────────────────────────────────────────────────────────────────
 
 function limparErros() {
   ATRIBUTOS.forEach(a => document.getElementById(`card-${a}`).classList.remove('erro'));
   const el = document.getElementById('erros-form');
-  el.innerHTML = '';
-  el.style.display = 'none';
+  el.innerHTML = ''; el.style.display = 'none';
 }
 
 function mostrarErros(msgs) {
@@ -447,40 +689,269 @@ function mostrarErros(msgs) {
 
 function validarFormulario(e) {
   const erros = [];
-
-  // Nome obrigatório
   const nome = document.querySelector('[name="nome"]').value.trim();
-  if (!nome) {
-    erros.push('Preencha o nome do personagem.');
-    document.querySelector('[name="nome"]').focus();
-  }
+  if (!nome) { erros.push('Preencha o nome do personagem.'); document.querySelector('[name="nome"]').focus(); }
 
-  // Atributos
   if (metodoAtual === 'fixos') {
-    const vazios = ATRIBUTOS.filter(a => valoresUsados[a] === undefined);
-    if (vazios.length > 0) {
-      const faltam = vazios.length === ATRIBUTOS.length
-        ? 'Nenhum atributo foi preenchido.'
-        : `Faltam ${vazios.length} atributo(s) sem valor atribuído.`;
-      erros.push(faltam + ' Arraste os valores da pool para os atributos.');
-      vazios.forEach(a => document.getElementById(`card-${a}`).classList.add('erro'));
-      ATRIBUTOS.filter(a => valoresUsados[a] !== undefined)
-               .forEach(a => document.getElementById(`card-${a}`).classList.remove('erro'));
+    const livres = ATRIBUTOS.filter(a => valoresUsados[a] === undefined && !document.getElementById(`input-${a}`).getAttribute('data-bloqueado'));
+    if (livres.length > 0) {
+      erros.push(`Faltam ${livres.length} atributo(s) sem valor atribuído. Arraste os valores para os atributos.`);
+      livres.forEach(a => document.getElementById(`card-${a}`).classList.add('erro'));
     }
   } else if (metodoAtual === 'rolagem') {
-    if (!rolagemCompleta) {
-      erros.push('Clique em "Rolar Todos" para gerar os valores dos atributos.');
-      ATRIBUTOS.forEach(a => document.getElementById(`card-${a}`).classList.add('erro'));
-    }
+    if (!rolagemCompleta) erros.push('Clique em "Rolar Todos" para gerar os valores dos atributos.');
   }
 
-  if (erros.length > 0) {
-    e.preventDefault();
-    mostrarErros(erros);
+  if (erros.length > 0) { e.preventDefault(); mostrarErros(erros); }
+}
+
+// ═══ MODAL DE TÉCNICAS ════════════════════════════════════════════════════════
+
+const NIVEL_NOMES = {
+  0: 'Nível 0 — Inicial',
+  1: 'Nível 1 — Nv.4',
+  2: 'Nível 2 — Nv.8',
+  3: 'Nível 3 — Nv.12',
+  4: 'Nível 4 — Nv.16',
+  5: 'Nível 5 — Nv.20',
+};
+
+const CATEGORIAS_ORDEM = ['Técnica Inata', 'Técnica Amaldiçoada', 'Técnica Herdada'];
+
+function tagClass(tag) {
+  if (tag.includes('Restrição') || tag.includes('Custo em PV')) return 'tag-chip-restricao';
+  if (tag.includes('Origem') || tag.includes('Requer')) return 'tag-chip-origem';
+  if (tag.includes('Bônus') || tag.includes('Passivo') || tag.includes('Positivo') || tag.includes('Talento') || tag.includes('Proficiência')) return 'tag-chip-positivo';
+  return 'tag-chip-default';
+}
+
+function tagHtml(tag) {
+  return `<span class="tag-chip ${tagClass(tag)}">${tag}</span>`;
+}
+
+function abrirModalTecnicas() {
+  tecnicaSelecionadaTemp = tecnicaSelecionadaId;
+  renderizarLista();
+  document.getElementById('modal-tecnicas').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  atualizarFooterSel();
+  atualizarBotaoConfirmar();
+}
+
+function fecharModalTecnicas() {
+  tecnicaSelecionadaTemp = null;
+  document.getElementById('modal-tecnicas').style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+function fecharModalFora(e) {
+  if (e.target === document.getElementById('modal-tecnicas')) fecharModalTecnicas();
+}
+
+function renderizarLista() {
+  document.getElementById('tcat-lista').style.display = 'block';
+  document.getElementById('tcat-detalhe').style.display = 'none';
+
+  const grid = document.getElementById('tcat-grid');
+  const porCat = {};
+  for (const [id, t] of Object.entries(TECNICAS_DATA)) {
+    const cat = t.tipo || 'Técnica Inata';
+    if (!porCat[cat]) porCat[cat] = [];
+    porCat[cat].push({id, ...t});
+  }
+
+  let html = '';
+  for (const cat of CATEGORIAS_ORDEM) {
+    const lista = porCat[cat];
+    if (!lista || lista.length === 0) continue;
+    html += `<div class="tcat-cat-titulo">${cat}</div><div class="tcat-cards-row">`;
+    for (const t of lista) {
+      const isSelected = t.id === tecnicaSelecionadaTemp;
+      const hasCriacao = !!(t.criacao);
+      const descCurta = (t.descricao || '').substring(0, 110) + ((t.descricao || '').length > 110 ? '…' : '');
+      const reqBadge = t.req_origem ? `<span class="tcat-card-criacao-badge">🔗 Orig.</span>` : '';
+      const criacaoBadge = hasCriacao && !t.req_origem ? `<span class="tcat-card-criacao-badge" title="${(t.criacao.info || '').substring(0,80)}">⚠ Criação</span>` : '';
+      html += `<div class="tcat-card${isSelected ? ' selected' : ''}" data-id="${t.id}"
+          onclick="selecionarCardModal('${t.id}', this)"
+          ondblclick="abrirDetalheTecnica('${t.id}')">
+        ${reqBadge || criacaoBadge}
+        <div class="tcat-card-tipo">${t.tipo || ''}</div>
+        <div class="tcat-card-nome">${t.nome}</div>
+        <div class="tcat-card-personagem">${t.personagem || ''}</div>
+        <div class="tcat-card-desc">${descCurta}</div>
+      </div>`;
+    }
+    html += '</div>';
+  }
+  grid.innerHTML = html;
+}
+
+function selecionarCardModal(id, el) {
+  document.querySelectorAll('.tcat-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  tecnicaSelecionadaTemp = id;
+  atualizarFooterSel();
+  atualizarBotaoConfirmar();
+}
+
+function abrirDetalheTecnica(id) {
+  tecnicaSelecionadaTemp = id;
+  atualizarFooterSel();
+  atualizarBotaoConfirmar();
+  mostrarDetalhe(id);
+}
+
+let allIds = null;
+
+function mostrarDetalhe(id) {
+  document.getElementById('tcat-lista').style.display = 'none';
+  const detEl = document.getElementById('tcat-detalhe');
+  detEl.style.display = 'block';
+
+  const t = TECNICAS_DATA[id];
+  if (!t) return;
+
+  // Posição
+  if (!allIds) allIds = Object.keys(TECNICAS_DATA);
+  const idx = allIds.indexOf(id);
+  document.getElementById('det-posicao').textContent = `${idx + 1} / ${allIds.length}`;
+
+  // Header
+  document.getElementById('det-tipo').textContent = t.tipo || '';
+  document.getElementById('det-nome').textContent = t.nome;
+  document.getElementById('det-personagem').textContent = t.personagem ? `— ${t.personagem}` : '';
+  document.getElementById('det-desc').textContent = t.descricao || '';
+
+  const reqEl = document.getElementById('det-req');
+  if (t.req_origem) {
+    reqEl.textContent = `Requer: ${t.req_origem.replace(/_/g, ' ')}`;
+    reqEl.style.display = 'inline';
+  } else {
+    reqEl.style.display = 'none';
+  }
+
+  // Funcionamento
+  document.getElementById('det-func').innerHTML =
+    (t.funcionamento_basico || []).map(b => `<div class="tcat-det-func-item">${b}</div>`).join('');
+
+  // Criação
+  const criacaoEl = document.getElementById('det-criacao');
+  if (t.criacao) {
+    criacaoEl.style.display = 'block';
+    document.getElementById('det-criacao-info').innerHTML = `<div class="tcat-criacao-info">${t.criacao.info || ''}</div>`;
+    document.getElementById('det-criacao-tags').innerHTML = (t.criacao.tags || []).map(tagHtml).join('');
+  } else {
+    criacaoEl.style.display = 'none';
+  }
+
+  // Tabs de nível
+  const habs = t.habilidades || [];
+  const porNivel = {};
+  habs.forEach(h => {
+    const nv = h.nivel ?? 0;
+    if (!porNivel[nv]) porNivel[nv] = [];
+    porNivel[nv].push(h);
+  });
+
+  const niveis = Object.keys(porNivel).map(Number).sort((a,b) => a-b);
+  const tabsBtns = document.getElementById('det-tabs-btns');
+  const tabsContent = document.getElementById('det-tabs-content');
+
+  tabsBtns.innerHTML = niveis.map((nv, i) =>
+    `<button type="button" class="tcat-tab-btn${i === 0 ? ' ativo' : ''}" onclick="trocarTab(${nv}, this)">
+      Nv.${nv} <span style="font-size:.65rem;opacity:.7">(${porNivel[nv].length})</span>
+    </button>`
+  ).join('');
+
+  tabsContent.innerHTML = niveis.map((nv, i) =>
+    `<div class="tcat-tab-panel${i > 0 ? ' tcat-tab-hidden' : ''}" data-nivel="${nv}">
+      <div style="font-size:.75rem;color:var(--text-muted);margin-bottom:.6rem;font-style:italic">${NIVEL_NOMES[nv] || `Nível ${nv}`}</div>
+      <div class="tcat-hab-grid">
+        ${porNivel[nv].map(h => `<div class="tcat-hab"><div class="tcat-hab-nome">${h.nome}</div><div class="tcat-hab-desc">${h.desc || ''}</div></div>`).join('')}
+      </div>
+    </div>`
+  ).join('');
+}
+
+function trocarTab(nivel, btn) {
+  document.querySelectorAll('.tcat-tab-btn').forEach(b => b.classList.remove('ativo'));
+  btn.classList.add('ativo');
+  document.querySelectorAll('.tcat-tab-panel').forEach(p => {
+    p.classList.toggle('tcat-tab-hidden', parseInt(p.dataset.nivel) !== nivel);
+  });
+}
+
+function voltarLista() {
+  renderizarLista();
+}
+
+function atualizarFooterSel() {
+  const selEl = document.getElementById('tcat-footer-sel');
+  const nomeEl = document.getElementById('tcat-footer-nome');
+  if (tecnicaSelecionadaTemp && TECNICAS_DATA[tecnicaSelecionadaTemp]) {
+    selEl.style.display = 'flex';
+    nomeEl.textContent = '⚡ ' + TECNICAS_DATA[tecnicaSelecionadaTemp].nome;
+  } else {
+    selEl.style.display = 'none';
   }
 }
 
-// ── Init ───────────────────────────────────────────────────────────────────────
+function atualizarBotaoConfirmar() {
+  document.getElementById('btn-confirmar').disabled = !tecnicaSelecionadaTemp;
+}
+
+function confirmarTecnica() {
+  if (!tecnicaSelecionadaTemp) return;
+  tecnicaSelecionadaId = tecnicaSelecionadaTemp;
+  document.getElementById('tecnica-catalogo-id').value = tecnicaSelecionadaId;
+
+  const t = TECNICAS_DATA[tecnicaSelecionadaId];
+  if (t) {
+    // Preencher campo de nome da técnica
+    const inputNome = document.getElementById('input-tecnica-nome');
+    if (!inputNome.value) inputNome.value = t.nome;
+
+    // Mostrar preview
+    document.getElementById('prev-tipo').textContent = t.tipo || '';
+    document.getElementById('prev-nome').textContent = t.nome;
+    document.getElementById('prev-personagem').textContent = t.personagem ? `— ${t.personagem}` : '';
+    document.getElementById('prev-tags').innerHTML = (t.criacao?.tags || []).map(tagHtml).join('');
+
+    const criacao = t.criacao || {};
+    const avisoEl = document.getElementById('teccat-restricao-aviso');
+    if (criacao.info) {
+      document.getElementById('teccat-restricao-txt').textContent = criacao.info;
+      avisoEl.style.display = 'flex';
+    } else {
+      avisoEl.style.display = 'none';
+    }
+
+    document.getElementById('teccat-preview').style.display = 'block';
+    document.getElementById('btn-abrir-catalogo').textContent = '✏ Trocar Técnica';
+  }
+
+  // Apply attribute restrictions
+  aplicarRestricoesTecnica(tecnicaSelecionadaId);
+
+  fecharModalTecnicas();
+}
+
+function limparTecnica() {
+  tecnicaSelecionadaId = null;
+  tecnicaSelecionadaTemp = null;
+  document.getElementById('tecnica-catalogo-id').value = '';
+  document.getElementById('teccat-preview').style.display = 'none';
+  document.getElementById('btn-abrir-catalogo').textContent = '📖 Ver Técnicas';
+  aplicarRestricoesTecnica(null);
+  resetarAtributos();
+}
+
+// ── CSS hidden tab panels ─────────────────────────────────────────────────────
+const style = document.createElement('style');
+style.textContent = '.tcat-tab-hidden{display:none!important}';
+document.head.appendChild(style);
+
+// ── Init ─────────────────────────────────────────────────────────────────────
 ATRIBUTOS.forEach(a => atualizarMod(a));
 setupDragDrop();
 document.querySelector('.wizard-form').addEventListener('submit', validarFormulario);

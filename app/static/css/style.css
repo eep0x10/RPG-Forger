@@ -150,7 +150,7 @@ body {
 .badge-cla { background: rgba(245,158,11,0.15); color: #fbbf24; font-size: 0.7rem; }
 .badge-raro { background: rgba(239,68,68,0.15); color: #f87171; font-size: 0.7rem; }
 .badge-locked { background: rgba(100,116,139,0.15); color: var(--text-muted); font-size: 0.7rem; }
-.badge-lg { font-size: 0.85rem; padding: 0.35rem 0.85rem; }
+.badge-lg { font-size: 0.9rem; padding: 0.4rem 1rem; font-weight: 700; }
 
 /* ========== PAGE HEADER ========== */
 .page-header {
@@ -711,7 +711,7 @@ body {
 .pericia-mod-live.mod-neg { color: var(--danger); }
 .pericia-ja-escolhida { opacity: 0.55; cursor: not-allowed; border-color: var(--border) !important; background: var(--bg-input) !important; }
 .pericia-ja-escolhida:hover { border-color: var(--border) !important; }
-.badge-origem { font-size: 0.65rem; background: rgba(124,58,237,0.15); color: var(--accent-light); border: 1px solid rgba(124,58,237,0.3); border-radius: 4px; padding: 0 4px; vertical-align: middle; }
+.pericia-badge-origem { font-size: 0.62rem; background: rgba(124,58,237,0.15); color: var(--accent-light); border: 1px solid rgba(124,58,237,0.3); border-radius: 4px; padding: 0 4px; vertical-align: middle; }
 
 /* ========== UNIFORME ========== */
 .uniforme-grid { display: flex; gap: 1rem; flex-wrap: wrap; }
@@ -925,7 +925,7 @@ body {
   margin-bottom: 0.3rem;
 }
 .ficha-jogador { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.75rem; }
-.ficha-tags { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.ficha-tags { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin-top: 0.25rem; }
 .ficha-actions { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; flex-shrink: 0; }
 
 /* XP Bar */
@@ -979,6 +979,21 @@ body {
   margin-bottom: 1rem;
   padding-bottom: 0.75rem;
   border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.pontos-apt-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #f59e0b;
+  background: rgba(245,158,11,0.12);
+  border: 1px solid rgba(245,158,11,0.35);
+  border-radius: 99px;
+  padding: 0.15rem 0.55rem;
+  text-transform: none;
+  letter-spacing: 0;
+  white-space: nowrap;
 }
 
 /* Atributos display */
@@ -991,6 +1006,7 @@ body {
   text-align: center;
   position: relative;
 }
+.atrib-display.atrib-selecionado { border-color: var(--accent); background: rgba(124,58,237,0.1); }
 .atrib-display-label { font-size: 0.7rem; color: var(--text-muted); display: block; margin-bottom: 2px; }
 .atrib-display-val { font-size: 1.8rem; font-weight: 700; display: block; line-height: 1.1; }
 .atrib-display-mod { font-size: 1rem; font-weight: 600; display: block; }
@@ -1247,8 +1263,9 @@ body {
 .luu-apt-opcao:hover { border-color: rgba(124,58,237,0.5); background: rgba(124,58,237,0.08); }
 .luu-apt-selecionada { border-color: var(--accent) !important; background: rgba(124,58,237,0.15) !important; }
 .luu-apt-usada { opacity: 0.4; cursor: default; }
-.luu-apt-opcao-nome { font-size: 0.83rem; font-weight: 600; color: var(--text); margin-bottom: 0.15rem; }
+.luu-apt-opcao-nome { font-size: 0.83rem; font-weight: 600; color: var(--text); margin-bottom: 0.15rem; display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; }
 .luu-apt-opcao-desc { font-size: 0.77rem; color: var(--text-dim); line-height: 1.45; }
+.badge-tecnica-tag { display: inline-block; background: rgba(6,182,212,0.15); color: #67e8f9; border: 1px solid rgba(6,182,212,0.35); border-radius: 99px; font-size: 0.62rem; font-weight: 700; padding: 0.1rem 0.45rem; letter-spacing: 0.02em; white-space: nowrap; }
 
 /* ── Catálogo de Aptidões (modal) ──────────────────────────────────────────── */
 .apt-cat-tabs {
@@ -1287,7 +1304,9 @@ body {
 }
 .apt-catalog-card:hover { border-color: var(--border-hover); }
 .apt-catalog-adquirida { border-color: #22c55e; background: rgba(34,197,94,0.06); }
-.apt-catalog-bloqueada { opacity: 0.45; }
+.apt-catalog-bloqueada { opacity: 0.45; pointer-events: none; }
+.apt-catalog-card { cursor: default; }
+.apt-sel-highlight { border-color: #a78bfa !important; background: rgba(167,139,250,0.12) !important; box-shadow: 0 0 0 2px rgba(167,139,250,0.35); }
 .apt-catalog-header {
   display: flex;
   align-items: flex-start;
@@ -1301,8 +1320,11 @@ body {
 .apt-badge-ok   { background: rgba(34,197,94,0.15);  color: #22c55e; }
 .apt-badge-lock { background: rgba(248,113,113,0.15); color: #f87171; }
 .apt-badge-req  { background: rgba(251,191,36,0.15);  color: #fbbf24; }
+.apt-badge-disp { background: rgba(99,179,237,0.15);  color: #63b3ed; }
 .apt-catalog-desc { font-size: 0.8rem; color: var(--text-dim); line-height: 1.5; margin: 0 0 0.4rem; }
-.apt-catalog-reqs { font-size: 0.7rem; color: var(--text-muted); }
+.apt-catalog-reqs { font-size: 0.7rem; color: var(--text-muted); display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; }
+.req-chip { display: inline-block; border-radius: 99px; padding: 0.1rem 0.45rem; background: rgba(248,113,113,0.12); color: #f87171; font-size: 0.65rem; font-weight: 600; }
+.req-chip.req-ok { background: rgba(34,197,94,0.12); color: #22c55e; }
 
 /* Habilidades de especialização inline picker (reutiliza estilos apt) */
 .luu-hab-chosen { font-size: 0.78rem; font-weight: 600; color: #6ee7b7; background: rgba(16,185,129,0.15); padding: 0.1rem 0.55rem; border-radius: 99px; margin-left: 0.4rem; }
@@ -1311,43 +1333,46 @@ body {
 .luu-tipo-escolha summary { color: #6ee7b7; }
 
 /* ── Níveis de Aptidão ─────────────────────────────────────────────────────── */
-.apt-niveis-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
+.apt-cat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
 }
-.apt-nivel-row {
+.apt-cat-card {
   background: var(--bg-input);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 0.5rem 0.7rem;
-  transition: border-color 0.15s;
-}
-.apt-nivel-row:hover { border-color: var(--border-hover); }
-.apt-nivel-header {
+  padding: 0.6rem 0.75rem;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 0.4rem;
-  margin-bottom: 0.45rem;
+  gap: 0.2rem;
+  position: relative;
 }
-.apt-nivel-icone { font-size: 1rem; }
-.apt-nivel-nome { font-size: 0.82rem; font-weight: 600; color: var(--text); flex: 1; }
-.apt-nivel-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
-.apt-nivel-pips {
-  display: flex;
-  gap: 0.3rem;
+.apt-cat-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-align: center;
 }
-.apt-pip {
-  width: 28px;
-  height: 10px;
-  border-radius: 99px;
-  border: 1.5px solid var(--border);
-  background: transparent;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+.apt-cat-val {
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1;
 }
-.apt-pip:hover { transform: scaleY(1.3); }
-.apt-pip-on { /* color set dynamically via inline style */ }
+.apt-cat-nome {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.apt-cat-card .btn-atrib-up {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+}
 
 /* Aptidões lista na ficha */
 .apt-lista-ficha { display: flex; flex-direction: column; gap: 0.25rem; }
@@ -1715,6 +1740,10 @@ body {
 .equip-prop { background: #1e1b4b; color: #a5b4fc; border-radius: 99px; padding: .08rem .35rem; font-size: .67rem; }
 .equip-arma-critico { font-size: .75rem; color: #fca5a5; margin-bottom: .25rem; }
 .equip-arma-obs { font-size: .72rem; color: var(--text-muted); line-height: 1.4; border-left: 2px solid var(--border); padding-left: .4rem; }
+.kit-acc-label { font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); margin-bottom: .3rem; }
+.kit-acc-lista { margin: 0 0 .25rem 0; padding-left: 1.3rem; font-size: .8rem; color: var(--text); line-height: 1.65; }
+.kit-acc-lista li { padding-left: .15rem; }
+.kit-acc-itens { display: flex; flex-wrap: wrap; gap: .3rem; }
 .equip-uni-neg { color: var(--danger) !important; }
 
 /* ─── Nav user dropdown ─── */

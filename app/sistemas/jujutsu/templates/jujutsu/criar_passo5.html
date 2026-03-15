@@ -174,16 +174,7 @@
     </div>
     {% endif %}
 
-    <!-- Campos adicionais antes de salvar -->
-    <div class="form-section">
-      <h3 class="section-title">✨ Detalhes Finais</h3>
-      <div class="form-group">
-        <label class="form-label">Habilidades Extras / Notas</label>
-        <textarea name="notas" class="form-input form-textarea"
-                  placeholder="Notas adicionais, histórico, detalhes da técnica..."></textarea>
-      </div>
-    </div>
-
+    <div id="erros-revisao" class="form-erros" style="display:none"></div>
     <div class="wizard-actions">
       <a href="javascript:history.back()" class="btn btn-ghost">← Voltar</a>
       <button type="submit" class="btn btn-primary btn-lg btn-glow">
@@ -250,6 +241,30 @@ selecionarAtribExtras('inteligencia', MOD_INT);
 {% else %}
 selecionarAtribExtras('sabedoria', MOD_SAB);
 {% endif %}
+
+// Validação: exige que todas as perícias extras sejam distribuídas
+document.querySelector('.wizard-form').addEventListener('submit', function(e) {
+  if (!atribExtras) return; // nenhum atributo escolhido ainda
+  const checked = document.querySelectorAll('.extras-check:checked').length;
+  if (checked < maxExtras) {
+    e.preventDefault();
+    const el = document.getElementById('erros-revisao');
+    el.innerHTML = `<span>⚠ Distribua todas as perícias adicionais: ${checked} de ${maxExtras} selecionadas.</span>`;
+    el.style.display = 'flex';
+    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+});
 </script>
 {% endif %}
+
+<script>
+// Validação quando não há perícias extras (bloco acima não executa)
+{% if not (mod_int > 0 or mod_sab > 0) %}
+// sem perícias extras — sem validação extra
+{% endif %}
+</script>
+
+<style>
+.form-erros{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.35);border-radius:10px;padding:.75rem 1rem;margin-bottom:1rem;display:flex;flex-direction:column;gap:.3rem;color:#f87171;font-size:.85rem}
+</style>
 {% endblock %}

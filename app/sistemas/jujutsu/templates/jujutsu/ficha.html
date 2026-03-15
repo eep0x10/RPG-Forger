@@ -82,7 +82,7 @@
             </div>
             {% if dados.pontos_atributo_disponivel and dados.pontos_atributo_disponivel > 0 %}
             <button type="button" class="btn-atrib-up"
-                    onclick="distribuirAtributo('{{ attr }}')">+</button>
+                    onclick="selecionarAtributo('{{ attr }}', this)">+</button>
             {% endif %}
           </div>
           {% endfor %}
@@ -91,31 +91,34 @@
         <div class="pontos-atrib-aviso">
           ⚡ <strong>{{ dados.pontos_atributo_disponivel }}</strong> ponto(s) de atributo disponível(is)
         </div>
+        <div id="atrib-confirm-bar" style="display:none;margin-top:0.75rem;display:none;gap:0.5rem;align-items:center">
+          <span id="atrib-confirm-label" style="font-size:0.82rem;color:var(--text-muted)"></span>
+          <button type="button" class="btn btn-primary btn-sm" onclick="confirmarAtributo()">✔ Confirmar</button>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="cancelarAtributo()">Cancelar</button>
+        </div>
         {% endif %}
       </div>
 
-      <!-- Níveis de Aptidão -->
+      <!-- Aptidão Amaldiçoada -->
       <div class="ficha-card">
-        <div class="ficha-card-title">🎯 Níveis de Aptidão</div>
-        <div class="apt-niveis-grid">
+        <div class="ficha-card-title">🔮 Nível de Aptidão Amaldiçoada
+          {% if dados.get('aptidao_pts_disponivel', 0) > 0 %}
+          <span class="pontos-apt-badge" id="apt-pts-badge">⚡ {{ dados.aptidao_pts_disponivel }} pt(s)</span>
+          {% endif %}
+        </div>
+        <div class="apt-cat-grid">
           {% for cat in niveis_aptidao_cats %}
           {% set nivel_atual = niveis_aptidao.get(cat.id, 0) %}
           {% set label = niveis_aptidao_labels[nivel_atual] %}
-          <div class="apt-nivel-row" data-cat="{{ cat.id }}" title="{{ cat.desc }}">
-            <div class="apt-nivel-header">
-              <span class="apt-nivel-icone">{{ cat.icone }}</span>
-              <span class="apt-nivel-nome">{{ cat.nome }}</span>
-              <span class="apt-nivel-label" id="apt-label-{{ cat.id }}" style="color:{{ label.cor }}">{{ label.nome }}</span>
-            </div>
-            <div class="apt-nivel-pips">
-              {% for i in range(1, 5) %}
-              <div class="apt-pip {% if nivel_atual >= i %}apt-pip-on{% endif %}"
-                   data-cat="{{ cat.id }}"
-                   data-nivel="{{ i }}"
-                   style="{% if nivel_atual >= i %}background:{{ label.cor }};border-color:{{ label.cor }}{% endif %}"
-                   onclick="setNivelAptidao('{{ cat.id }}', {{ i }})"></div>
-              {% endfor %}
-            </div>
+          {% set pts = dados.get('aptidao_pts_disponivel', 0) %}
+          <div class="apt-cat-card" title="{{ cat.desc }}">
+            <div class="apt-cat-label">{{ cat.icone }} {{ cat.nome }}</div>
+            <div class="apt-cat-val" style="color:{{ label.cor }}">{{ nivel_atual }}</div>
+            <div class="apt-cat-nome" style="color:{{ label.cor }}">{{ label.nome }}</div>
+            {% if pts > 0 and nivel_atual < 5 %}
+            <button type="button" class="btn-atrib-up apt-gain-btn"
+                    onclick="ganharNivelAptidao('{{ cat.id }}')">+</button>
+            {% endif %}
           </div>
           {% endfor %}
         </div>
@@ -272,7 +275,8 @@
         <div class="ficha-card-title">⬆ Level Up Upgrades</div>
 
         <div class="luu-wrapper">
-          {% for n in range(1, 21) %}
+          {% set luu_max = [dados.nivel + 3, 20] | min %}
+          {% for n in range(1, luu_max + 1) %}
           {% set itens = ganhos_por_nivel.get(n, []) %}
           {% if itens %}
           {% set desbloqueado = dados.nivel >= n %}
@@ -287,58 +291,20 @@
             <div class="luu-itens">
               {% for item in itens %}
               {% if item.tipo == 'aptidao' %}
-                {# Aptidão amaldiçoada — escolha inline #}
-                {% set apt_escolhida_id = aptidoes_por_nivel.get(n|string) %}
-                {% set apt_escolhida = todas_aptidoes | selectattr('id', 'equalto', apt_escolhida_id) | list | first if apt_escolhida_id else None %}
-                {% if desbloqueado %}
-                <details class="luu-item luu-tipo-aptidao" id="luu-apt-{{ n }}">
-                  <summary class="luu-item-nome">
-                    🌀 Aptidão Amaldiçoada
-                    {% if apt_escolhida %}
-                    <span class="luu-apt-chosen">{{ apt_escolhida.nome }}</span>
-                    {% else %}
-                    <span class="luu-apt-pending">— escolher</span>
-                    {% endif %}
-                    <span class="luu-expand-hint">▸</span>
-                  </summary>
-                  <div class="luu-item-desc luu-apt-body" data-nivel="{{ n }}">
-                    {% if apt_escolhida %}
-                    <div class="luu-apt-desc-text">{{ apt_escolhida.descricao }}</div>
-                    <button type="button" class="btn btn-xs btn-ghost" onclick="togglePicker({{ n }}); return false;" style="margin-top:0.5rem;font-size:0.75rem">Trocar</button>
-                    {% endif %}
-                    {# Picker (visível quando não escolhida ou ao clicar em Trocar) #}
-                    <div class="luu-apt-picker {% if apt_escolhida %}luu-picker-hidden{% endif %}" data-nivel="{{ n }}">
-                      <p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:0.4rem">Aptidões disponíveis para o nível {{ n }}:</p>
-                      <div class="luu-apt-lista">
-                        {% set apt_ids_usados = aptidoes_por_nivel.values() | list %}
-                        {% set aptidoes_personagem = dados.get('aptidoes', []) %}
-                        {% for apt in todas_aptidoes %}
-                        {% if apt.nivel_req <= dados.nivel %}
-                        {% set prereqs_ok = apt.req | length == 0 or (apt.req | reject('in', aptidoes_personagem) | list | length == 0) %}
-                        {% set ja_outro_nivel = (apt.id in apt_ids_usados) and (aptidoes_por_nivel.get(n|string) != apt.id) %}
-                        <div class="luu-apt-opcao {% if apt_escolhida_id == apt.id %}luu-apt-selecionada{% endif %} {% if ja_outro_nivel or not prereqs_ok %}luu-apt-usada{% endif %}"
-                             data-apt-id="{{ apt.id }}"
-                             data-nivel="{{ n }}"
-                             {% if not ja_outro_nivel and prereqs_ok %}onclick="escolherAptidao({{ n }}, '{{ apt.id }}', this)"{% endif %}>
-                          <div class="luu-apt-opcao-nome">{{ apt.nome }}
-                            {% if apt.nivel_req > 1 %}<span style="font-size:0.68rem;color:var(--text-muted)">(req. nível {{ apt.nivel_req }})</span>{% endif %}
-                            {% if ja_outro_nivel %}<span class="badge" style="font-size:0.65rem;background:var(--bg-input);color:var(--text-muted)">em uso</span>{% endif %}
-                          </div>
-                          <div class="luu-apt-opcao-desc">{{ apt.descricao }}</div>
-                        </div>
-                        {% endif %}
-                        {% endfor %}
-                      </div>
-                    </div>
-                  </div>
+                <details class="luu-item luu-tipo-aptidao">
+                  <summary class="luu-item-nome">🌀 {{ item.nome }}{% if item.desc %}<span class="luu-expand-hint">▸</span>{% endif %}</summary>
+                  {% if item.desc %}
+                  <div class="luu-item-desc">{{ item.desc }}</div>
+                  {% else %}
+                  <div class="luu-item-desc text-muted" style="font-style:italic">Escolha na seção Nível de Aptidão Amaldiçoada acima.</div>
+                  {% endif %}
                 </details>
-                {% endif %}
               {% elif item.tipo == 'escolha' and desbloqueado %}
                 {# Habilidade de especialização — escolha inline #}
                 {% set hab_escolhida_id = habilidades_por_nivel.get(n|string) %}
                 {% set hab_escolhida = habilidades_catalogadas | selectattr('id', 'equalto', hab_escolhida_id) | list | first if hab_escolhida_id else None %}
                 {% set hab_ids_usados = habilidades_por_nivel.values() | list %}
-                {% set habs_nivel_disponiveis = habilidades_catalogadas | selectattr('nivel', 'le', dados.nivel) | list %}
+                {% set habs_nivel_disponiveis = habilidades_catalogadas | selectattr('nivel', 'le', n) | list %}
                 <details class="luu-item luu-tipo-escolha" id="luu-hab-{{ n }}">
                   <summary class="luu-item-nome">
                     ✨ Habilidade de Especialização
@@ -354,8 +320,34 @@
                     <div class="luu-hab-desc-text">{{ hab_escolhida.desc }}</div>
                     <button type="button" class="btn btn-xs btn-ghost" onclick="toggleHabPicker({{ n }}); return false;" style="margin-top:0.5rem;font-size:0.75rem">Trocar</button>
                     {% endif %}
+                    {# Sub-picker Apogeu #}
+                    {% if hab_escolhida and hab_escolhida.id == 'apogeu' %}
+                    <div class="apogeu-picker-wrap" style="margin-top:0.75rem">
+                      {% set escolha_atual = apogeu_escolha %}
+                      {% set opcao_atual = apogeu_opcoes | selectattr('id','equalto', escolha_atual) | list | first if escolha_atual else None %}
+                      {% if opcao_atual %}
+                      <div class="apogeu-escolhida">
+                        <span class="luu-hab-chosen">{{ opcao_atual.nome }}</span>
+                        <p style="font-size:0.78rem;color:var(--text-dim);margin:.3rem 0 .5rem">{{ opcao_atual.desc }}</p>
+                        <button type="button" class="btn btn-xs btn-ghost" onclick="toggleApogeuPicker(this)">Trocar</button>
+                      </div>
+                      <div class="apogeu-opcoes" style="display:none;margin-top:0.5rem">
+                      {% else %}
+                      <p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:0.4rem">Escolha seu estilo de controle:</p>
+                      <div class="apogeu-opcoes">
+                      {% endif %}
+                        {% for op in apogeu_opcoes %}
+                        <div class="luu-apt-opcao {% if escolha_atual == op.id %}luu-apt-selecionada{% endif %}"
+                             onclick="escolherApogeu('{{ op.id }}', this)">
+                          <div class="luu-apt-opcao-nome">{{ op.nome }}</div>
+                          <div class="luu-apt-opcao-desc">{{ op.desc }}</div>
+                        </div>
+                        {% endfor %}
+                      </div>
+                    </div>
+                    {% endif %}
                     <div class="luu-hab-picker {% if hab_escolhida %}luu-picker-hidden{% endif %}" data-nivel="{{ n }}">
-                      <p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:0.4rem">Habilidades disponíveis (nível ≤ {{ dados.nivel }}):</p>
+                      <p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:0.4rem">Habilidades disponíveis para esta vaga (nível ≤ {{ n }}):</p>
                       {% if habs_nivel_disponiveis %}
                       <div class="luu-apt-lista">
                         {% for hab in habs_nivel_disponiveis %}
@@ -365,6 +357,7 @@
                              data-nivel="{{ n }}"
                              {% if not ja_outro_nivel %}onclick="escolherHabilidade({{ n }}, '{{ hab.id }}', this)"{% endif %}>
                           <div class="luu-apt-opcao-nome">{{ hab.nome }}
+                            {% if hab.get('tecnica_nome') %}<span class="badge-tecnica-tag">{{ hab.tecnica_nome }}</span>{% endif %}
                             {% if hab.nivel > 1 %}<span style="font-size:0.68rem;color:var(--text-muted)">(req. nível {{ hab.nivel }})</span>{% endif %}
                             {% if ja_outro_nivel %}<span class="badge" style="font-size:0.65rem;background:var(--bg-input);color:var(--text-muted)">em uso</span>{% endif %}
                           </div>
@@ -536,6 +529,40 @@
         </div>
       </div>
 
+      <!-- Inventário -->
+      <div class="ficha-card" id="inventario-card">
+        <div class="inv-header">
+          <span class="ficha-card-title" style="margin-bottom:0">📦 Inventário</span>
+          <button class="inv-add-btn" id="inv-add-btn" onclick="invToggleForm()" title="Adicionar item">+</button>
+        </div>
+
+        <div id="inv-form" class="inv-form" style="display:none">
+          <input class="inv-input" id="inv-nome" type="text" placeholder="Nome do item" maxlength="80">
+          <textarea class="inv-textarea" id="inv-desc" placeholder="Descrição (opcional)" rows="2"></textarea>
+          <div class="inv-form-actions">
+            <button class="btn btn-sm btn-ghost" type="button" onclick="invCancelar()">Cancelar</button>
+            <button class="btn btn-sm btn-primary" type="button" onclick="invSalvar()">Adicionar</button>
+          </div>
+        </div>
+
+        <div id="inv-lista">
+          {% set inv = dados.get('inventario', []) %}
+          {% if inv %}
+            {% for item in inv %}
+            <div class="inv-item" id="inv-{{ item.id }}">
+              <div class="inv-item-body">
+                <div class="inv-item-nome">{{ item.nome }}</div>
+                {% if item.desc %}<div class="inv-item-desc">{{ item.desc }}</div>{% endif %}
+              </div>
+              <button class="inv-del-btn" onclick="invRemover('{{ item.id }}')" title="Remover">×</button>
+            </div>
+            {% endfor %}
+          {% else %}
+            <div class="inv-vazio" id="inv-vazio">Nenhum item no inventário.</div>
+          {% endif %}
+        </div>
+      </div>
+
       <!-- Notas -->
       {% if dados.notas %}
       <div class="ficha-card">
@@ -699,11 +726,11 @@
 </div>
 
 <!-- Modal Catálogo de Aptidões -->
-<div class="modal-overlay" id="modal-aptidoes" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+<div class="modal-overlay" id="modal-aptidoes" style="display:none" onclick="if(event.target===this)fecharModalAptidoes()">
   <div class="modal-content" style="max-width:860px;width:95vw;max-height:90vh;display:flex;flex-direction:column">
     <div class="modal-header">
-      <h3>📖 Catálogo de Aptidões Amaldiçoadas</h3>
-      <button onclick="document.getElementById('modal-aptidoes').style.display='none'" class="modal-close">×</button>
+      <h3 id="modal-apt-titulo">📖 Catálogo de Aptidões Amaldiçoadas</h3>
+      <button onclick="fecharModalAptidoes()" class="modal-close">×</button>
     </div>
     <div class="modal-body" style="overflow-y:auto;padding:1rem 1.25rem">
 
@@ -724,29 +751,40 @@
         <div class="apt-catalog-grid">
           {% for apt in cat.lista %}
           {% set adquirida = apt.id in dados.get('aptidoes', []) %}
-          {% set nivel_ok = dados.nivel >= apt.nivel_req %}
-          {% set req_ok = apt.req | length == 0 or (apt.req | reject('in', dados.get('aptidoes', [])) | list | length == 0) %}
-          <div class="apt-catalog-card {% if adquirida %}apt-catalog-adquirida{% elif not nivel_ok or not req_ok %}apt-catalog-bloqueada{% endif %}">
+          {% set status = apt_status.get(apt.id, {'ok': True, 'nivel_ok': True, 'req_ok': True, 'faltando': []}) %}
+          {% set bloqueada = not adquirida and not status.ok %}
+          <div class="apt-catalog-card {% if adquirida %}apt-catalog-adquirida{% elif bloqueada %}apt-catalog-bloqueada{% endif %}"
+               data-apt-id="{{ apt.id }}">
             <div class="apt-catalog-header">
               <span class="apt-catalog-nome">{{ apt.nome }}</span>
               <div style="display:flex;align-items:center;gap:.35rem;flex-shrink:0">
-                <span class="apt-catalog-nivel">Nív. {{ apt.nivel_req }}</span>
+                {% if apt.nivel_req > 0 %}
+                <span class="apt-catalog-nivel">{{ cat.nome }} {{ apt.nivel_req }}</span>
+                {% endif %}
                 {% if adquirida %}
                 <span class="apt-catalog-badge apt-badge-ok">✓ Adquirida</span>
-                {% elif not nivel_ok %}
-                <span class="apt-catalog-badge apt-badge-lock">🔒 Nív. {{ apt.nivel_req }}</span>
-                {% elif not req_ok %}
-                <span class="apt-catalog-badge apt-badge-req">🔗 Pré-req</span>
+                {% elif bloqueada %}
+                <span class="apt-catalog-badge apt-badge-lock">🔒 Bloqueada</span>
+                {% else %}
+                <span class="apt-catalog-badge apt-badge-disp">✦ Disponível</span>
                 {% endif %}
               </div>
             </div>
             <p class="apt-catalog-desc">{{ apt.descricao }}</p>
-            {% if apt.req %}
+            {# Monta lista completa de pré-requisitos para exibir #}
+            {% set all_reqs = [] %}
+            {% if apt.nivel_req > 0 %}{% set _ = all_reqs.append({"label": cat.nome ~ " " ~ apt.nivel_req, "ok": status.nivel_ok}) %}{% endif %}
+            {% for r in apt.get('req', []) %}{% set _ = all_reqs.append({"label": todas_aptidoes | selectattr('id', 'equalto', r) | map(attribute='nome') | first | default(r | replace('_',' ') | title), "ok": r in dados.get('aptidoes', [])}) %}{% endfor %}
+            {% set rn = apt.get('req_nivel', 0) %}{% if rn > 0 %}{% set _ = all_reqs.append({"label": "Nível " ~ rn, "ok": dados.nivel >= rn}) %}{% endif %}
+            {% for attr, val in apt.get('req_atributos', {}).items() %}{% set _ = all_reqs.append({"label": {"forca":"Força","destreza":"Destreza","constituicao":"Constituição","inteligencia":"Inteligência","sabedoria":"Sabedoria","presenca":"Presença"}.get(attr, attr) ~ " " ~ val, "ok": dados.get('atributos', {}).get(attr, 0) >= val}) %}{% endfor %}
+            {% set ou = apt.get('req_atributos_ou', []) %}{% if ou %}{% set ou_ok = namespace(v=false) %}{% for d in ou %}{% for a, v in d.items() %}{% if dados.get('atributos', {}).get(a, 0) >= v %}{% set ou_ok.v = true %}{% endif %}{% endfor %}{% endfor %}{% set ou_label = ou | map(attribute=ou[0].keys()|list|first) | list %}{% set ou_parts = [] %}{% for d in ou %}{% for a, v in d.items() %}{% set _ = ou_parts.append({"forca":"Força","destreza":"Destreza","constituicao":"Constituição","inteligencia":"Inteligência","sabedoria":"Sabedoria","presenca":"Presença"}.get(a, a) ~ " " ~ v) %}{% endfor %}{% endfor %}{% set _ = all_reqs.append({"label": ou_parts | join(" ou "), "ok": ou_ok.v}) %}{% endif %}
+            {% for p in apt.get('req_pericias', []) %}{% set pnivel = dados.get('pericias_treinadas', {}).get(p.nome) %}{% set p_ok = (pnivel in ['treinado','mestre']) if p.nivel == 'treinado' else (pnivel == 'mestre') %}{% set _ = all_reqs.append({"label": ("Mestre" if p.nivel == "mestre" else "Treinado") ~ " em " ~ p.nome, "ok": p_ok}) %}{% endfor %}
+            {% for cat_id, cat_nivel in apt.get('req_apt_nivel', {}).items() %}{% set cat_label = aptidoes_categorias | selectattr('id', 'equalto', cat_id) | map(attribute='nome') | first | default(cat_id) %}{% set _ = all_reqs.append({"label": cat_label ~ " " ~ cat_nivel, "ok": niveis_aptidao.get(cat_id, 0) >= cat_nivel}) %}{% endfor %}
+            {% if all_reqs %}
             <div class="apt-catalog-reqs">
               Requer:
-              {% for r in apt.req %}
-              {% set r_ok = r in dados.get('aptidoes', []) %}
-              <span class="req-chip {% if r_ok %}req-ok{% endif %}">{{ r | replace('_',' ') | title }}</span>
+              {% for r in all_reqs %}
+              <span class="req-chip {% if r.ok %}req-ok{% endif %}">{{ r.label }}</span>
               {% endfor %}
             </div>
             {% endif %}
@@ -812,9 +850,10 @@
 const PID = {{ pid }};
 const URL_ATUALIZAR_PV = "{{ url_for('jujutsu.atualizar_pv', pid=pid) }}";
 const URL_SUBIR_NIVEL = "{{ url_for('jujutsu.subir_nivel', pid=pid) }}";
-const URL_ESCOLHER_APTIDAO = "{{ url_for('jujutsu.api_escolher_aptidao', pid=pid) }}";
 const URL_ESCOLHER_HAB = "{{ url_for('jujutsu.api_escolher_habilidade_spec', pid=pid) }}";
 const URL_NIVEL_APTIDAO = "{{ url_for('jujutsu.api_atualizar_nivel_aptidao', pid=pid) }}";
+const URL_GANHAR_NIVEL_APTIDAO = "{{ url_for('jujutsu.api_ganhar_nivel_aptidao', pid=pid) }}";
+const URL_ESCOLHER_APOGEU = "{{ url_for('jujutsu.api_escolher_apogeu', pid=pid) }}";
 const NIVEIS_APTIDAO_LABELS = {{ niveis_aptidao_labels | tojson }};
 const HABS_CATALOGADAS = {{ habilidades_catalogadas | tojson }};
 const URL_DISTRIBUIR_ATRIBUTO = "{{ url_for('jujutsu.distribuir_atributo', pid=pid) }}";
@@ -946,47 +985,42 @@ async function confirmarLevelUp() {
         <div>PE restaurado: ${data.pe_max}</div>
         <div>Bônus de Treinamento: +${data.bonus_treinamento}</div>
         ${data.pontos_atributo_disponivel > 0 ? `<div>🎯 ${data.pontos_atributo_disponivel} pontos de atributo disponíveis!</div>` : ''}
+        ${data.aptidao_pts_disponivel > 0 ? `<div>🔮 ${data.aptidao_pts_disponivel} ponto(s) de aptidão disponíveis!</div>` : ''}
       </div>
       ${ganhosHtml ? `<div class="levelup-upgrades"><strong>⬆ Você ganhou:</strong><ul style="margin:0.4rem 0 0 1.2rem;padding:0;font-size:0.9rem">${ganhosHtml}</ul></div>` : ''}
     </div>`;
 
   showToast(data.mensagem);
 
-  if (data.habilidades_disponiveis && data.habilidades_disponiveis.length > 0) {
-    const nivel = data.nivel;
-    const habsHtml = data.habilidades_disponiveis.map(h => `
-      <div class="luu-apt-opcao" data-hab-id="${h.id}" onclick="escolherHabilidadeModal(${nivel}, '${h.id}', this)">
-        <div class="luu-apt-opcao-nome">${h.nome}${h.nivel > 1 ? ` <span style="font-size:0.68rem;color:var(--text-muted)">(req. nível ${h.nivel})</span>` : ''}</div>
-        ${h.desc ? `<div class="luu-apt-opcao-desc">${h.desc}</div>` : ''}
-      </div>`).join('');
-    res.innerHTML += `
-      <div id="hab-modal-picker" style="margin-top:1rem">
-        <h4 style="font-size:0.95rem;margin:0 0 0.5rem;color:var(--accent)">✨ Escolha uma Habilidade de Especialização</h4>
-        <div class="luu-apt-lista" style="max-height:260px;overflow-y:auto">${habsHtml}</div>
-      </div>`;
-  } else {
-    setTimeout(() => location.reload(), 1800);
-  }
+  setTimeout(() => location.reload(), 1800);
 }
 
-async function escolherHabilidadeModal(nivel, habId, el) {
-  const resp = await fetch(URL_ESCOLHER_HAB, {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({nivel, hab_id: habId})
-  });
-  const data = await resp.json();
-  if (!data.sucesso) { showToast(data.erro || 'Erro', 'error'); return; }
 
-  const picker = document.getElementById('hab-modal-picker');
-  picker.innerHTML = `
-    <div style="margin-top:0.5rem;padding:0.75rem;background:rgba(124,58,237,0.1);border-radius:8px">
-      <div style="font-weight:700;color:var(--accent)">✅ ${data.hab_nome}</div>
-      ${data.hab_desc ? `<div style="font-size:0.82rem;color:var(--text-muted);margin-top:0.25rem">${data.hab_desc}</div>` : ''}
-      <div style="font-size:0.78rem;color:var(--text-muted);margin-top:0.4rem">Adicionado em Talentos/Habilidades!</div>
-    </div>`;
-  showToast(`"${data.hab_nome}" escolhida!`);
-  setTimeout(() => location.reload(), 1800);
+let _atribSelecionado = null;
+
+function selecionarAtributo(attr, btn) {
+  // Deselect previous
+  document.querySelectorAll('.atrib-display.atrib-selecionado').forEach(el => el.classList.remove('atrib-selecionado'));
+
+  _atribSelecionado = attr;
+  btn.closest('.atrib-display').classList.add('atrib-selecionado');
+
+  const bar = document.getElementById('atrib-confirm-bar');
+  const label = document.getElementById('atrib-confirm-label');
+  const nomeLabel = btn.closest('.atrib-display').querySelector('.atrib-display-label').textContent;
+  label.textContent = `Aumentar ${nomeLabel}?`;
+  bar.style.display = 'flex';
+}
+
+function cancelarAtributo() {
+  _atribSelecionado = null;
+  document.querySelectorAll('.atrib-display.atrib-selecionado').forEach(el => el.classList.remove('atrib-selecionado'));
+  document.getElementById('atrib-confirm-bar').style.display = 'none';
+}
+
+async function confirmarAtributo() {
+  if (!_atribSelecionado) return;
+  await distribuirAtributo(_atribSelecionado);
 }
 
 async function distribuirAtributo(attr) {
@@ -997,7 +1031,7 @@ async function distribuirAtributo(attr) {
   });
   const data = await resp.json();
   if (data.sucesso) {
-    showToast(`${attr} aumentado para ${data.novo_valor} (${data.modificador >= 0 ? '+' : ''}${data.modificador})!`);
+    showToast(`Atributo aumentado para ${data.novo_valor} (${data.modificador >= 0 ? '+' : ''}${data.modificador})!`);
     setTimeout(() => location.reload(), 1000);
   } else {
     showToast(data.erro, 'error');
@@ -1046,84 +1080,25 @@ async function setNivelAptidao(catId, nivel) {
   if (label) { label.textContent = data.nome; label.style.color = data.cor; }
 }
 
-// ── Aptidões Amaldiçoadas ──
-async function escolherAptidao(nivel, aptId, el) {
-  const picker = el.closest('.luu-apt-picker');
-  const body = el.closest('.luu-apt-body');
-
-  // Captura escolha anterior deste nível antes de atualizar
-  const oldSelected = picker.querySelector('.luu-apt-selecionada');
-  const oldAptId = oldSelected ? oldSelected.dataset.aptId : null;
-
-  const resp = await fetch(URL_ESCOLHER_APTIDAO, {
+async function ganharNivelAptidao(catId) {
+  const resp = await fetch(URL_GANHAR_NIVEL_APTIDAO, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({nivel, apt_id: aptId})
+    body: JSON.stringify({categoria: catId})
   });
   const data = await resp.json();
-  if (!data.sucesso) { showToast(data.erro || 'Erro', 'error'); return; }
-
-  // Atualiza o summary
-  const details = document.getElementById(`luu-apt-${nivel}`);
-  const summary = details.querySelector('summary');
-  let chosen = summary.querySelector('.luu-apt-chosen');
-  let pending = summary.querySelector('.luu-apt-pending');
-  if (!chosen) {
-    chosen = document.createElement('span');
-    chosen.className = 'luu-apt-chosen';
-    pending?.replaceWith(chosen);
+  if (data.sucesso) {
+    document.querySelectorAll('.apt-gain-btn').forEach(b => b.disabled = true);
+    showToast(`Aptidão avançada para ${data.nome}!`);
+    setTimeout(() => location.reload(), 1000);
+  } else {
+    showToast(data.erro, 'error');
   }
-  chosen.textContent = data.apt_nome;
-  if (pending) pending.remove();
-
-  // Atualiza o body
-  let descEl = body.querySelector('.luu-apt-desc-text');
-  if (!descEl) {
-    descEl = document.createElement('div');
-    descEl.className = 'luu-apt-desc-text';
-    body.insertBefore(descEl, picker);
-    // Adiciona botão trocar
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'btn btn-xs btn-ghost';
-    btn.style.cssText = 'margin-top:0.5rem;font-size:0.75rem';
-    btn.textContent = 'Trocar';
-    btn.onclick = (e) => { e.preventDefault(); togglePicker(nivel); };
-    body.insertBefore(btn, picker);
-  }
-  descEl.textContent = data.apt_desc;
-  picker.classList.add('luu-picker-hidden');
-
-  // Marca a selecionada no picker
-  picker.querySelectorAll('.luu-apt-opcao').forEach(o => o.classList.remove('luu-apt-selecionada'));
-  el.classList.add('luu-apt-selecionada');
-
-  // Propaga "em uso" para todos os outros pickers: marca nova escolha como usada
-  document.querySelectorAll(`.luu-apt-opcao[data-apt-id="${aptId}"]`).forEach(o => {
-    if (o.closest('.luu-apt-picker') !== picker) {
-      o.classList.add('luu-apt-usada');
-      o.onclick = null;
-    }
-  });
-
-  // Se havia escolha anterior diferente, libera ela nos outros pickers
-  if (oldAptId && oldAptId !== aptId) {
-    document.querySelectorAll(`.luu-apt-opcao[data-apt-id="${oldAptId}"]`).forEach(o => {
-      if (o.closest('.luu-apt-picker') !== picker) {
-        o.classList.remove('luu-apt-usada');
-        const n = parseInt(o.dataset.nivel);
-        const id = o.dataset.aptId;
-        o.onclick = () => escolherAptidao(n, id, o);
-      }
-    });
-  }
-
-  showToast(`Aptidão "${data.apt_nome}" escolhida!`);
 }
 
-function togglePicker(nivel) {
-  const picker = document.querySelector(`.luu-apt-picker[data-nivel="${nivel}"]`);
-  if (picker) picker.classList.toggle('luu-picker-hidden');
+// ── Modal catálogo em modo seleção ──
+function fecharModalAptidoes() {
+  document.getElementById('modal-aptidoes').style.display = 'none';
 }
 
 // ── Habilidades de Especialização ──
@@ -1199,6 +1174,45 @@ async function escolherHabilidade(nivel, habId, el) {
   }
 
   showToast(`"${data.hab_nome}" escolhida!`);
+}
+
+// ── Apogeu do Controlador ──
+function toggleApogeuPicker(btn) {
+  const wrap = btn.closest('.apogeu-picker-wrap');
+  const opcoes = wrap.querySelector('.apogeu-opcoes');
+  opcoes.style.display = opcoes.style.display === 'none' ? 'block' : 'none';
+}
+
+async function escolherApogeu(opcaoId, el) {
+  const resp = await fetch(URL_ESCOLHER_APOGEU, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({opcao_id: opcaoId})
+  });
+  const data = await resp.json();
+  if (!data.sucesso) { showToast(data.erro || 'Erro', 'error'); return; }
+
+  const wrap = el.closest('.apogeu-picker-wrap');
+  // Mark selected
+  wrap.querySelectorAll('.luu-apt-opcao').forEach(o => o.classList.remove('luu-apt-selecionada'));
+  el.classList.add('luu-apt-selecionada');
+
+  // Update or create the chosen display
+  let escolhida = wrap.querySelector('.apogeu-escolhida');
+  if (!escolhida) {
+    escolhida = document.createElement('div');
+    escolhida.className = 'apogeu-escolhida';
+    wrap.insertBefore(escolhida, wrap.querySelector('.apogeu-opcoes'));
+  }
+  escolhida.innerHTML = `
+    <span class="luu-hab-chosen">${data.nome}</span>
+    <p style="font-size:0.78rem;color:var(--text-dim);margin:.3rem 0 .5rem">${data.desc}</p>
+    <button type="button" class="btn btn-xs btn-ghost" onclick="toggleApogeuPicker(this)">Trocar</button>
+  `;
+  const opcoes = wrap.querySelector('.apogeu-opcoes');
+  if (opcoes) opcoes.style.display = 'none';
+
+  showToast(`Apogeu: ${data.nome} escolhido!`);
 }
 
 // ── Talentos/Habilidades ──
@@ -1298,4 +1312,89 @@ function toggleKitAccordion() {
   if (arrow) arrow.textContent = open ? '▸' : '▾';
 }
 </script>
+
+<script>
+const INV_URL = "{{ url_for('jujutsu.api_inventario', pid=pid) }}";
+
+function invToggleForm() {
+  const form = document.getElementById('inv-form');
+  const open = form.style.display !== 'none';
+  form.style.display = open ? 'none' : 'block';
+  if (!open) document.getElementById('inv-nome').focus();
+}
+
+function invCancelar() {
+  document.getElementById('inv-form').style.display = 'none';
+  document.getElementById('inv-nome').value = '';
+  document.getElementById('inv-desc').value = '';
+}
+
+async function invSalvar() {
+  const nome = document.getElementById('inv-nome').value.trim();
+  if (!nome) { document.getElementById('inv-nome').focus(); return; }
+  const desc = document.getElementById('inv-desc').value.trim();
+  const res = await fetch(INV_URL, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({acao: 'add', nome, desc})
+  });
+  if (!res.ok) return;
+  const data = await res.json();
+  invCancelar();
+  invRenderLista(data.inventario);
+}
+
+async function invRemover(id) {
+  const res = await fetch(INV_URL, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({acao: 'remove', id})
+  });
+  if (!res.ok) return;
+  const data = await res.json();
+  invRenderLista(data.inventario);
+}
+
+function invRenderLista(inventario) {
+  const lista = document.getElementById('inv-lista');
+  if (!inventario.length) {
+    lista.innerHTML = '<div class="inv-vazio" id="inv-vazio">Nenhum item no inventário.</div>';
+    return;
+  }
+  lista.innerHTML = inventario.map(item => `
+    <div class="inv-item" id="inv-${item.id}">
+      <div class="inv-item-body">
+        <div class="inv-item-nome">${item.nome}</div>
+        ${item.desc ? `<div class="inv-item-desc">${item.desc}</div>` : ''}
+      </div>
+      <button class="inv-del-btn" onclick="invRemover('${item.id}')" title="Remover">×</button>
+    </div>`).join('');
+}
+
+// Salvar com Enter no campo nome (Shift+Enter pula para descrição)
+document.getElementById('inv-nome')?.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); invSalvar(); }
+});
+</script>
+
+<style>
+.inv-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem}
+.inv-add-btn{width:1.8rem;height:1.8rem;border-radius:50%;background:var(--accent);color:#fff;border:none;font-size:1.1rem;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s;flex-shrink:0}
+.inv-add-btn:hover{background:var(--accent-light)}
+.inv-form{background:var(--bg-input);border:1px solid var(--border);border-radius:8px;padding:.75rem;margin-bottom:.6rem;display:flex;flex-direction:column;gap:.45rem}
+.inv-input{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:.4rem .6rem;color:var(--text);font-size:.85rem;outline:none;width:100%;box-sizing:border-box}
+.inv-input:focus{border-color:var(--accent)}
+.inv-textarea{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:.4rem .6rem;color:var(--text);font-size:.82rem;outline:none;width:100%;box-sizing:border-box;resize:vertical;line-height:1.4}
+.inv-textarea:focus{border-color:var(--accent)}
+.inv-form-actions{display:flex;gap:.5rem;justify-content:flex-end}
+.btn-sm{padding:.3rem .75rem;font-size:.78rem}
+.inv-item{display:flex;align-items:flex-start;gap:.5rem;padding:.5rem 0;border-bottom:1px solid rgba(255,255,255,.05)}
+.inv-item:last-child{border-bottom:none}
+.inv-item-body{flex:1;min-width:0}
+.inv-item-nome{font-size:.88rem;font-weight:600;color:var(--text)}
+.inv-item-desc{font-size:.78rem;color:var(--text-muted);margin-top:.15rem;line-height:1.4;word-break:break-word}
+.inv-del-btn{flex-shrink:0;background:none;border:none;color:var(--text-muted);font-size:1rem;cursor:pointer;padding:.1rem .3rem;border-radius:4px;line-height:1;transition:color .15s}
+.inv-del-btn:hover{color:#f87171}
+.inv-vazio{font-size:.82rem;color:var(--text-muted);text-align:center;padding:.5rem 0}
+</style>
 {% endblock %}
